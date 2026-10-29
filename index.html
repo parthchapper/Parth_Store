@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Al-Falaj SAT-1 · Tinker Circuit</title>
+<meta name="description" content="Interactive power and data architecture of the Al-Falaj SAT-1 classroom demonstrator.">
+<style>
+:root{
+  --bg:#02050a;--panel:#050b12;--panel2:#08121c;--line:#10283a;
+  --cyan:#00f3ff;--amber:#ffaa00;--red:#ff2d3d;--text:#cfeff7;--dim:#5f7b8c;--dim2:#1d3040;
+  --c-power:#ffaa00;--c-gnd:#4a5864;--c-i2c:#39ff88;--c-uart:#00f3ff;--c-spi:#c9d4de;
+  --c-pwm:#ff6a00;--c-sync:#fff200;--c-ready:#b26bff;--c-wdt:#8fa3b3;
+  --s-eps:#ffaa00;--s-cdhs:#00f3ff;--s-adcs:#00b8c4;--s-payload:#b26bff;--s-comms:#ff8a3d;
+  --mono:"JetBrains Mono","Fira Code","SFMono-Regular",ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 var(--mono)}
+body{overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+a{color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+/* ── LCARS header ── */
+.lcars{display:grid;grid-template-columns:150px 1fr;gap:0 8px;padding:14px 16px 0}
+.elbow{position:relative;background:var(--amber);border-radius:52px 0 0 0;min-height:132px;color:#000}
+.elbow::after{content:"";position:absolute;left:64px;top:36px;right:0;bottom:0;background:var(--bg);border-top-left-radius:28px}
+.elbow span{position:absolute;left:8px;bottom:10px;font-weight:800;font-size:12px;letter-spacing:.08em;z-index:1}
+.hbar{display:flex;gap:6px;height:36px}
+.hbar i{display:block;height:100%}
+.hbar .s1{flex:3;background:var(--amber)}
+.hbar .s2{flex:1;background:var(--cyan)}
+.hbar .s3{flex:.5;background:#b36f00}
+.hbar .s4{flex:2;background:#007a82;border-radius:0 18px 18px 0}
+.hrow{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding:12px 0 8px}
+h1{margin:0;font-size:22px;letter-spacing:.08em;font-weight:800}
+h1 b{color:var(--cyan);font-weight:800}
+.hrow p{margin:2px 0 0;color:var(--dim);letter-spacing:.04em}
+.modes{display:flex;align-items:center;gap:6px}
+.modes span{color:var(--dim);font-size:11px;margin-right:4px;letter-spacing:.1em}
+.modes button,.subs button{padding:6px 14px;border-radius:16px;background:var(--dim2);color:var(--text);font-weight:700;font-size:12px;letter-spacing:.06em}
+.modes button.on{background:var(--cyan);color:#000}
+.modes button[data-mode=demo].on{background:var(--amber)}
+.subs{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:4px}
+.subs button{border-radius:0 16px 16px 0;border-left:6px solid var(--c);background:#07121b;font-size:11px}
+.subs button.on{background:var(--c);color:#000}
+
+/* ── telemetry strip ── */
+.telem{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px;padding:10px 16px}
+.cell{background:var(--panel);border-left:6px solid var(--cyan);border-radius:0 14px 14px 0;padding:6px 10px}
+.cell.a{border-left-color:var(--amber)}
+.cell .k{font-size:10px;color:var(--dim);letter-spacing:.12em}
+.cell .v{font-size:16px;font-weight:700;white-space:nowrap}
+.cell .v.warn{color:var(--amber)} .cell .v.bad{color:var(--red)} .cell .v.ok{color:var(--cyan)}
+.bar{height:5px;background:var(--dim2);border-radius:3px;margin-top:4px;position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--cyan)}
+.bar b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--red)}
+
+/* ── layout ── */
+.grid{display:grid;grid-template-columns:1fr;gap:10px;padding:0 16px 16px}
+.top{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:10px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-left:10px solid var(--amber);border-radius:0 20px 20px 0;min-width:0}
+.panel.c{border-left-color:var(--cyan)}
+.ph{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.ph h2{margin:0;font-size:12px;letter-spacing:.16em;color:var(--amber)}
+.panel.c .ph h2{color:var(--cyan)}
+.ph .hint{color:var(--dim);font-size:11px}
+.schem{position:relative;overflow:auto}
+#schem{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-top:1px solid var(--line)}
+.legend button{display:flex;align-items:center;gap:6px;padding:3px 10px 3px 6px;border-radius:12px;background:#07121b;font-size:11px;letter-spacing:.05em}
+.legend button i{width:18px;height:4px;border-radius:2px;background:var(--c)}
+.legend button.off{opacity:.35;text-decoration:line-through}
+.legend .note{color:var(--dim);font-size:11px;align-self:center;margin-left:auto}
+#tip{position:absolute;pointer-events:none;background:#000d;border:1px solid var(--cyan);color:var(--text);padding:4px 8px;font-size:11px;border-radius:0 10px 10px 0;display:none;white-space:nowrap;z-index:5}
+
+/* inspector */
+#inspector{display:flex;flex-direction:column;max-height:calc(100vh - 20px);position:sticky;top:10px;align-self:start}
+#insBody{padding:12px 14px;overflow:auto}
+.ins-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ins-h h3{margin:0;font-size:16px;letter-spacing:.06em}
+.chip{font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;background:var(--c,var(--cyan));color:#000;letter-spacing:.1em}
+.part{color:var(--dim);margin:4px 0 10px}
+.live{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;background:#000;border:1px solid var(--line);border-left:4px solid var(--cyan);padding:8px 10px;border-radius:0 10px 10px 0;margin-bottom:10px}
+.live span:nth-child(odd){color:var(--dim);font-size:11px}
+.live span:nth-child(even){color:var(--cyan);font-weight:700}
+.live .warn{color:var(--amber)!important}.live .bad{color:var(--red)!important}
+.ctl{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.ctl button{padding:5px 12px;border-radius:0 12px 12px 0;border-left:5px solid var(--amber);background:#0b1823;font-size:11px;font-weight:700;letter-spacing:.05em}
+.ctl button.r{border-left-color:var(--red)}
+dl{margin:0}
+dt{font-size:10px;letter-spacing:.14em;color:var(--amber);margin-top:10px}
+dd{margin:2px 0 0}
+.el{color:var(--dim);font-size:12px}.el.on{color:var(--text)}
+.el b{display:inline-block;min-width:58px;font-size:10px;letter-spacing:.1em}
+.el.on b{color:var(--cyan)}
+.qa{margin-top:12px;border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:0 10px 10px 0;padding:8px 10px;background:#070f16}
+.qa b{color:var(--amber);font-size:12px}.qa p{margin:4px 0 0}
+table.pins{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}
+table.pins td{padding:2px 4px;border-bottom:1px solid var(--line)}
+table.pins td:last-child{color:var(--cyan);text-align:right}
+.draft{color:var(--amber);font-size:10px;letter-spacing:.1em}
+ul.tight{margin:4px 0 0;padding-left:16px}
+
+/* bottom */
+.bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:10px}
+.faults{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;padding:10px 12px}
+.fb{text-align:left;background:#07111a;border:1px solid var(--dim2);border-left:6px solid var(--amber);border-radius:0 14px 14px 0;padding:7px 10px}
+.fb b{display:block;letter-spacing:.06em;font-size:12px}
+.fb small{display:block;color:var(--dim);font-size:10.5px;margin-top:1px}
+.fb.once{border-left-color:var(--cyan)}
+.fb.reset{border-left-color:#3d5566}
+.fb.on{border-color:var(--red);border-left-color:var(--red);box-shadow:0 0 14px #ff2d3d44}
+.fb.on b{color:var(--red)}
+.fb:hover{background:#0b1823}
+#lastEvt{margin:0 12px 12px;padding:8px 10px;background:#000;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:0 10px 10px 0;min-height:38px;font-size:12px}
+#lastEvt small{display:block;color:var(--dim);font-size:10px;letter-spacing:.14em}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tabs button{padding:3px 9px;border-radius:10px;background:#07121b;font-size:11px;letter-spacing:.05em}
+.tabs button.on{background:var(--cyan);color:#000;font-weight:700}
+.mctl{display:flex;gap:4px}
+.mctl button{padding:3px 9px;border-radius:10px;background:var(--dim2);font-size:11px}
+.mctl button.on{background:var(--amber);color:#000}
+#log{height:330px;overflow:auto;padding:6px 12px 10px;font-size:11.5px}
+.row{display:grid;grid-template-columns:76px 50px minmax(0,1fr);gap:6px;padding:1px 0;border-bottom:1px solid #0a1a26}
+.row .t{color:var(--dim)}
+.row .m{overflow-wrap:anywhere}
+.row .g{font-weight:800}
+.row.bad .m{color:var(--red)}.row.warn .m{color:var(--amber)}.row.ok .m{color:var(--cyan)}
+.g-i2c{color:var(--c-i2c)}.g-uart{color:var(--c-uart)}.g-spi{color:var(--c-spi)}.g-pwm{color:var(--c-pwm)}
+.g-payload{color:var(--c-ready)}.g-wdt{color:var(--c-wdt)}.g-eps{color:var(--c-power)}.g-sys{color:var(--red)}
+footer{padding:4px 16px 20px;color:var(--dim);font-size:11px;display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between}
+
+/* ── SVG ── */
+.nt{font:700 14.5px var(--mono);fill:var(--text);letter-spacing:.03em}
+.ns{font:11.5px var(--mono);fill:var(--dim)}
+.nl{font:700 12.5px var(--mono);fill:var(--cyan)}
+.nl.warn{fill:var(--amber)}.nl.bad{fill:var(--red)}.nl.off{fill:#3b5160}
+.pinl{font:10px var(--mono);fill:var(--dim);text-anchor:end}
+.rail{font:700 11px var(--mono);letter-spacing:.1em}
+.node{cursor:pointer}
+.node .body{fill:#050c14;stroke:var(--dim2);stroke-width:1.5;transition:stroke .15s}
+.node .cap{fill:var(--sc)}
+.node:hover .body{stroke:var(--cyan)}
+.node.sel .body{stroke:var(--cyan);stroke-width:2.2;filter:drop-shadow(0 0 7px #00f3ffaa)}
+.node.fault .body{stroke:var(--red)}
+.led{fill:#1a2a36}.led.ok{fill:var(--cyan)}.led.warn{fill:var(--amber)}.led.bad{fill:var(--red)}
+.big{font:800 18px var(--mono);fill:var(--cyan)}.big.warn{fill:var(--amber)}.big.bad{fill:var(--red)}.big.off{fill:#3b5160}
+.rotor circle{fill:none;stroke:var(--c-pwm);stroke-width:2}
+.rotor line{stroke:var(--c-pwm);stroke-width:3;stroke-linecap:round}
+.rotor .hub{fill:var(--c-pwm)}
+.rotor.stall circle,.rotor.stall line{stroke:var(--red)}.rotor.stall .hub{fill:var(--red)}
+.lens{fill:none;stroke:var(--c-ready);stroke-width:2}
+.lens.cap{fill:#b26bff55}
+
+.wire{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:opacity .2s}
+.wire.b-power{stroke:var(--c-power);stroke-width:2.6}
+.wire.b-gnd{stroke:var(--c-gnd);stroke-width:2;opacity:.8}
+.wire.b-i2c{stroke:var(--c-i2c);opacity:.8}
+.wire.b-uart{stroke:var(--c-uart);opacity:.7}
+.wire.b-spi{stroke:var(--c-spi);opacity:.6}
+.wire.b-pwm{stroke:var(--c-pwm);opacity:.3}
+.wire.b-sync{stroke:var(--c-sync);opacity:.6}
+.wire.b-ready{stroke:var(--c-ready);opacity:.7}
+.wire.b-wdt{stroke:var(--c-wdt);opacity:.7;stroke-dasharray:2 4}
+.wire.act{opacity:1;filter:drop-shadow(0 0 3px currentColor)}
+.wire.b-power.off{opacity:.16}
+.wire.b-power.on{stroke-dasharray:10 6;animation:flow 1s linear infinite}
+.wire.b-power.trip{stroke:var(--red);opacity:.95;stroke-dasharray:none}
+.wire.clk{stroke-dasharray:2 2;animation:flow .2s linear infinite;opacity:1}
+.wire.b-pwm.run{opacity:1;stroke-dasharray:3 5;animation:flow .6s linear infinite}
+.wire.b-pwm.trip{stroke:var(--red);opacity:1}
+@keyframes flow{to{stroke-dashoffset:-16}}
+.hit{fill:none;stroke:transparent;stroke-width:12;pointer-events:stroke;cursor:help}
+.jd{stroke:none}
+svg.focus .wire:not(.hl),svg.focus .jd:not(.hl){opacity:.07}
+svg.focus .node:not(.hl){opacity:.3}
+svg.hide-power .b-power,svg.hide-gnd .b-gnd,svg.hide-i2c .b-i2c,svg.hide-uart .b-uart,svg.hide-spi .b-spi,
+svg.hide-pwm .b-pwm,svg.hide-sync .b-sync,svg.hide-ready .b-ready,svg.hide-wdt .b-wdt{display:none}
+.pk{pointer-events:none}
+.pk circle{r:5;stroke:#000;stroke-width:1.5}
+.pk text{font:700 10px var(--mono);text-anchor:middle;paint-order:stroke;stroke:#02050a;stroke-width:3px}
+.pk.b-i2c circle,.pk.b-i2c text{fill:var(--c-i2c)}
+.pk.b-uart circle,.pk.b-uart text{fill:var(--c-uart)}
+.pk.b-spi circle,.pk.b-spi text{fill:var(--c-spi)}
+.pk.b-pwm circle,.pk.b-pwm text{fill:var(--c-pwm)}
+.pk.b-sync circle,.pk.b-sync text{fill:var(--c-sync)}
+.pk.b-ready circle,.pk.b-ready text{fill:var(--c-ready)}
+.pk.b-wdt circle,.pk.b-wdt text{fill:var(--c-wdt)}
+.pk.fail circle,.pk.fail text{fill:var(--red)}
+.pk circle{filter:drop-shadow(0 0 4px currentColor)}
+
+/* zoom · tour button · sheet */
+#insBody{flex:1;min-height:0}
+.zoom{display:flex;gap:4px;align-items:center}
+.zoom button{min-width:32px;padding:4px 9px;border-radius:10px;background:var(--dim2);font-size:12px;font-weight:800}
+.zoom button.on{background:var(--cyan);color:#000}
+.modes button.tourbtn{margin-left:6px;background:none;border:1px solid var(--cyan);color:var(--cyan)}
+.modes button.tourbtn:hover{background:var(--cyan);color:#000}
+.sheet-name{display:none}
+
+/* ── tour ── */
+#tour{position:fixed;inset:0;z-index:100;pointer-events:none}
+#tour[hidden]{display:none}
+.t-block{position:absolute;inset:0;pointer-events:auto}
+.t-spot{position:fixed;border:2px solid var(--cyan);border-radius:14px;box-shadow:0 0 0 200vmax rgba(0,3,8,.74),0 0 22px #00f3ff99;transition:left .3s,top .3s,width .3s,height .3s;pointer-events:none}
+.t-spot.none{border-color:transparent;box-shadow:0 0 0 200vmax rgba(0,3,8,.82)}
+.t-card{position:fixed;left:12px;top:12px;pointer-events:auto;width:min(390px,calc(100vw - 24px));background:#030a12;border:1px solid var(--line);border-left:10px solid var(--amber);border-radius:0 18px 18px 0;padding:12px 14px;box-shadow:0 12px 40px #000;transition:left .3s,top .3s}
+.t-top{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.14em;color:var(--dim)}
+.t-top button{color:var(--dim);font-size:10px;letter-spacing:.12em;padding:6px 0 6px 12px}
+.t-top button:hover{color:var(--red)}
+.t-card h4{margin:6px 0;font-size:15px;letter-spacing:.06em;color:var(--cyan)}
+.t-card p{margin:0;font-size:12.5px;line-height:1.55}
+.t-card p b{color:var(--amber);font-weight:700}
+.t-prog{height:4px;background:var(--dim2);border-radius:2px;margin:12px 0 10px;overflow:hidden}
+.t-prog i{display:block;height:100%;width:0;background:var(--amber);transition:width .3s}
+.t-nav{display:flex;justify-content:space-between;gap:8px}
+.t-nav button{padding:9px 16px;border-radius:18px;background:var(--dim2);font-weight:800;font-size:12px;letter-spacing:.08em}
+.t-nav #tNext{background:var(--cyan);color:#000}
+.t-nav button:disabled{opacity:.3;cursor:default}
+
+@media (max-width:1100px){
+  .top{grid-template-columns:1fr}
+  #inspector{position:static;max-height:none}
+  .bottom{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  body{padding-bottom:64px}
+  .lcars{grid-template-columns:56px 1fr;padding:10px 10px 0}
+  .elbow{border-radius:30px 0 0 0;min-height:112px}
+  .elbow::after{left:22px;top:24px;border-top-left-radius:16px}
+  .elbow span{display:none}
+  .hbar{height:24px}
+  .hbar .s3{display:none}
+  h1{font-size:15px;letter-spacing:.04em}
+  .hrow{padding:8px 0 6px;gap:8px}
+  .hrow p{font-size:11px}
+  .modes span{display:none}
+  .modes button,.subs button{padding:7px 12px}
+  .telem{grid-template-columns:repeat(3,minmax(0,1fr));padding:8px 10px;gap:5px}
+  .cell{padding:5px 8px;border-left-width:4px}
+  .cell .k{font-size:9px;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell .v{font-size:13.5px}
+  .grid{padding:0 10px 12px}
+  .panel{border-left-width:6px;border-radius:0 14px 14px 0}
+  .legend button{padding:7px 10px 7px 6px}
+  .legend .note{display:none}
+  #inspector{position:fixed;top:auto;left:0;right:0;bottom:0;z-index:40;max-height:72vh;max-height:72dvh;border:1px solid var(--line);border-top:5px solid var(--amber);border-radius:18px 18px 0 0;transform:translateY(calc(100% - 52px));transition:transform .28s ease;box-shadow:0 -10px 30px #000c}
+  #inspector.open{transform:none}
+  #inspector .ph{cursor:pointer;min-height:47px;position:relative;padding-top:14px;flex-wrap:nowrap}
+  #inspector .ph::before{content:"";position:absolute;left:50%;top:5px;width:44px;height:4px;margin-left:-22px;border-radius:2px;background:#2b4456}
+  .sheet-name{display:block;color:var(--cyan);font-size:11px;flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .faults{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px}
+  .fb{padding:9px 10px}
+  .tabs{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .tabs button{flex:none;padding:6px 10px}
+  #log{height:55vh;font-size:11px;padding:6px 8px}
+  .row{grid-template-columns:auto 1fr;gap:0 8px;padding:4px 0}
+  .row .m{grid-column:1/-1}
+  footer{padding:4px 10px 16px}
+}
+@media (prefers-reduced-motion:reduce){
+  .wire.b-power.on,.wire.clk,.wire.b-pwm.run{animation:none}
+  .t-spot,.t-card,.t-prog i,#inspector{transition:none}
+}
+</style>
+</head>
+<body>
+
+<header class="lcars">
+  <div class="elbow"><span>AF-1</span></div>
+  <div>
+    <div class="hbar"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div>
+    <div class="hrow">
+      <div>
+        <h1>AL-FALAJ SAT-1 <b>// TINKER CIRCUIT</b></h1>
+        <p>Interactive power &amp; data architecture · classroom demonstrator</p>
+      </div>
+      <div class="modes" role="group" aria-label="Power figures">
+        <span>POWER DATA</span>
+        <button data-mode="flight" class="on">FLIGHT BUDGET</button>
+        <button data-mode="demo">DEMO KIT</button>
+        <button class="tourbtn" id="tourBtn" title="Guided tour">▶ TOUR</button>
+      </div>
+    </div>
+    <nav class="subs" aria-label="Highlight subsystem">
+      <button data-sys="EPS" style="--c:var(--s-eps)">EPS</button>
+      <button data-sys="CDHS" style="--c:var(--s-cdhs)">CDHS</button>
+      <button data-sys="ADCS" style="--c:var(--s-adcs)">ADCS</button>
+      <button data-sys="PAYLOAD" style="--c:var(--s-payload)">PAYLOAD</button>
+      <button data-sys="COMMS" style="--c:var(--s-comms)">COMMS</button>
+    </nav>
+  </div>
+</header>
+
+<section class="telem" aria-live="off">
+  <div class="cell a"><div class="k">SOLAR IN</div><div class="v" id="tSolar">–</div></div>
+  <div class="cell a"><div class="k">LOAD</div><div class="v" id="tLoad">–</div></div>
+  <div class="cell a"><div class="k">NET</div><div class="v" id="tNet">–</div></div>
+  <div class="cell"><div class="k">V BATT (≈)</div><div class="v" id="tV">–</div></div>
+  <div class="cell"><div class="k">STATE OF CHARGE</div><div class="v" id="tSoc">–</div><div class="bar"><i id="socBar"></i><b style="left:70%"></b></div></div>
+  <div class="cell"><div class="k">ECLIPSE DoD / 30%</div><div class="v" id="tDod">–</div><div class="bar"><i id="dodBar"></i><b style="left:100%"></b></div></div>
+  <div class="cell"><div class="k">SYSTEM</div><div class="v" id="tState">–</div></div>
+  <div class="cell"><div class="k">CDHS</div><div class="v" id="tCdhs">–</div></div>
+  <div class="cell"><div class="k">WATCHDOG</div><div class="v" id="tWdt">–</div></div>
+</section>
+
+<main class="grid">
+  <div class="top">
+  <section class="panel c">
+    <div class="ph"><h2>▌SCHEMATIC</h2><span class="hint" id="schHint">click a block · hover a wire · click a wire for its bus</span><div class="zoom" role="group" aria-label="Zoom"><button id="zOut" aria-label="Zoom out">−</button><button id="zFit">FIT</button><button id="zIn" aria-label="Zoom in">+</button></div></div>
+    <div class="schem" id="schemWrap">
+      <svg id="schem" viewBox="0 0 1600 990" role="img" aria-label="Interactive circuit schematic of Al-Falaj SAT-1 demonstrator"></svg>
+      <div id="tip"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <aside class="panel" id="inspector">
+    <div class="ph" id="insHead"><h2>▌INSPECTOR</h2><span class="sheet-name" id="sheetName">tap a block</span><button class="hint" id="insClear">overview</button></div>
+    <div id="insBody"></div>
+  </aside>
+  </div>
+
+  <div class="bottom">
+    <section class="panel">
+      <div class="ph"><h2>▌FAULT INJECTION</h2><span class="hint">break it · watch it respond</span></div>
+      <div class="faults" id="faults">
+        <button class="fb" data-act="eclipse"><b>ECLIPSE</b><small id="eclTxt">33 min at ×60 · battery only</small></button>
+        <button class="fb once" data-act="drain"><b>DRAIN BATTERY</b><small>SoC → 69 % · past 30 % DoD floor</small></button>
+        <button class="fb" data-act="short"><b>PAYLOAD SHORT</b><small>tests eFuse isolation</small></button>
+        <button class="fb" data-act="stall"><b>X-WHEEL STALL</b><small>tests overcurrent detection</small></button>
+        <button class="fb once" data-act="hang"><b>CDHS HANG</b><small>tests hardware watchdog</small></button>
+        <button class="fb" data-act="mag"><b>MAG DROPOUT</b><small>I²C NACK at 0x0D</small></button>
+        <button class="fb" data-act="gps"><b>GPS NO FIX</b><small>NMEA fix quality 0</small></button>
+        <button class="fb" data-act="bypass"><b>BYPASS WATCHDOG</b><small>then inject CDHS HANG</small></button>
+        <button class="fb" data-act="mainsw"><b>MAIN SWITCH</b><small id="swTxt">closed</small></button>
+        <button class="fb reset" data-act="reset"><b>RESET ALL</b><small>nominal · battery full</small></button>
+      </div>
+      <div id="lastEvt"><small>LAST SYSTEM EVENT</small><span id="lastTxt">—</span></div>
+    </section>
+
+    <section class="panel c">
+      <div class="ph">
+        <h2>▌BUS MONITOR</h2>
+        <div class="tabs" id="tabs">
+          <button data-f="all" class="on">ALL</button><button data-f="i2c">I²C</button><button data-f="uart">UART</button>
+          <button data-f="spi">SPI</button><button data-f="pwm">PWM</button><button data-f="payload">PAYLOAD</button>
+          <button data-f="wdt">WDT</button><button data-f="eps">EPS</button><button data-f="sys">SYS</button>
+        </div>
+        <div class="mctl"><button id="pause">PAUSE</button><button id="clear">CLEAR</button></div>
+      </div>
+      <div id="log" role="log" aria-label="Decoded bus traffic"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span>Simulated telemetry — not flight data. The ESP32-CAM simulates, but does not replace, the 96-band HYPER-A payload.</span>
+  <span id="links"></span>
+</footer>
+
+<div id="tour" hidden>
+  <div class="t-block"></div>
+  <div class="t-spot"></div>
+  <div class="t-card" role="dialog" aria-modal="true" aria-labelledby="tTitle">
+    <div class="t-top"><span id="tStep">01</span><button id="tSkip">SKIP TOUR ✕</button></div>
+    <h4 id="tTitle"></h4>
+    <p id="tBody"></p>
+    <div class="t-prog"><i></i></div>
+    <div class="t-nav"><button id="tBack">◀ BACK</button><button id="tNext">NEXT ▶</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════════════
+   CONFIG — the only block you should need to edit
+   ════════════════════════════════════════════════════════════════════ */
+const CFG = {
+  // ESP32 pin map. Replace with your team's assignments, then set PIN_MAP_CONFIRMED:true.
+  PIN_MAP_CONFIRMED: false,
+  PINS: {
+    SDA: 21, SCL: 22,                              // I2C: MPU-6050, QMC5883L, TMP102
+    SD_MOSI: 23, SD_MISO: 19, SD_SCK: 18, SD_CS: 5,// SPI: microSD recorder
+    WDI: 4, WDT_RST: 'EN',                         // MAX6369 watchdog in / reset out
+    GPS_TX: 17, GPS_RX: 16,                        // UART2: ESP32 TX2 -> GPS RX, GPS TX -> ESP32 RX2
+    SYNC: 25, READY: 34,                           // payload handshake (34 is input-only: fine for READY)
+    WX_A: 26, WX_B: 27, WY_A: 32, WY_B: 33, WZ_A: 13, WZ_B: 14 // L9110S IA/IB per wheel
+  },
+  // Power per eFuse channel, in W at the 5 V rail.
+  // flightW = poster budget. The 2.5 / 1.0 W split of the poster's 3.5 W bus is an assumption — set it to your Madar figures.
+  // demoW   = typical datasheet draw of the classroom kit — measure yours with a USB power meter and edit.
+  CH: {
+    bus:     { name: 'BUS + CDHS', flightW: 2.5, demoW: 0.85, limitA: { flight: 0.8, demo: 0.4 } },
+    payload: { name: 'PAYLOAD',    flightW: 8.0, demoW: 1.2,  limitA: { flight: 2.0, demo: 0.6 } },
+    tx:      { name: 'TX',         flightW: 5.0, demoW: 0.5,  limitA: { flight: 1.3, demo: 0.3 } },
+    adcs:    { name: 'ADCS',       flightW: 1.0, demoW: 1.8,  limitA: { flight: 0.6, demo: 1.0 } }
+  },
+  RAIL_V: 5.0,
+  SOLAR_W: { flight: 16.5, demo: 5.0 },
+  BATT_WH: { flight: 20, demo: 19.24 },  // demo: 7.4 V x 2.6 Ah
+  DOD_FLOOR: 0.30,
+  ECLIPSE_MIN: 33,
+  TX_DUMP_MIN: 7,        // polar dump during eclipse: 3.5 W x 33 min + 5 W x 7 min = 2.51 Wh (poster)
+  STALL_W: { flight: 2.0, demo: 4.0 },
+  WHEEL_MAX_RPM: 6000,
+  PWM_KHZ: 20,
+  WDT_TIMEOUT_S: 1.6,    // set by MAX6369 SET pins — match your board
+  SIM_SPEED: 60,         // battery simulation runs 60x real time (33 min eclipse = 33 s)
+  // Footer links to your other sites. Leave empty to hide. e.g. [['Mission dashboard','https://…']]
+  LINKS: []
+};
+
+/* ════════════════════════════════════════════════════════════════════ */
+const P = CFG.PINS;
+const NS = 'http://www.w3.org/2000/svg';
+const $ = s => document.querySelector(s);
+const svg = $('#schem');
+const CHS = ['bus', 'payload', 'tx', 'adcs'];
+function E(tag, a, p) { const e = document.createElementNS(NS, tag); if (a) for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sg = (v, d = 1) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
+const pct = v => sg(v * 100, 0) + '%';
+
+const SYSC = { EPS: 'var(--s-eps)', CDHS: 'var(--s-cdhs)', ADCS: 'var(--s-adcs)', PAYLOAD: 'var(--s-payload)', COMMS: 'var(--s-comms)' };
+
+/* ── nodes ── */
+const NODES = [
+  { id: 'solar', x: 20, y: 40, w: 190, h: 90, t: 'SOLAR ARRAY', s: '0.04 m² · 16.5 W pk', sys: 'EPS' },
+  { id: 'mppt', x: 240, y: 40, w: 140, h: 90, t: 'MPPT CHARGER', s: 'CN3791 · 2S 8.4 V', sys: 'EPS' },
+  { id: 'batt', x: 410, y: 40, w: 170, h: 90, t: 'BATTERY', s: '2S Li-ion · 20 Wh', sys: 'EPS' },
+  { id: 'sw', x: 610, y: 40, w: 90, h: 90, t: 'SWITCH', s: 'main inhibit', sys: 'EPS' },
+  { id: 'buck', x: 730, y: 40, w: 130, h: 90, t: '5 V RAIL', s: 'buck 7.4→5 V', sys: 'EPS' },
+  { id: 'ef_bus', x: 890, y: 40, w: 110, h: 90, t: 'eFUSE', s: 'BUS+CDHS', sys: 'EPS', ch: 'bus' },
+  { id: 'ef_payload', x: 1030, y: 40, w: 110, h: 90, t: 'eFUSE', s: 'PAYLOAD', sys: 'EPS', ch: 'payload' },
+  { id: 'ef_tx', x: 1170, y: 40, w: 110, h: 90, t: 'eFUSE', s: 'TX', sys: 'EPS', ch: 'tx' },
+  { id: 'ef_adcs', x: 1310, y: 40, w: 110, h: 90, t: 'eFUSE', s: 'ADCS', sys: 'EPS', ch: 'adcs' },
+  { id: 'reg33', x: 300, y: 240, w: 130, h: 70, t: '3.3 V REG', s: 'LDO', sys: 'EPS' },
+  { id: 'tx', x: 1160, y: 200, w: 150, h: 70, t: 'TX 5 W', s: 'dummy load', sys: 'COMMS' },
+  { id: 'esp32', x: 40, y: 380, w: 220, h: 470, t: 'ESP32 CDHS', s: 'ESP-WROOM-32', sys: 'CDHS' },
+  { id: 'sd', x: 330, y: 380, w: 125, h: 100, t: 'RECORDER', s: 'microSD · SPI', sys: 'CDHS' },
+  { id: 'wdt', x: 470, y: 380, w: 125, h: 100, t: 'WATCHDOG', s: 'MAX6369', sys: 'CDHS' },
+  { id: 'imu', x: 610, y: 380, w: 125, h: 100, t: 'IMU', s: 'MPU-6050·0x68', sys: 'ADCS' },
+  { id: 'mag', x: 750, y: 380, w: 125, h: 100, t: 'MAG SENS', s: 'QMC5883L·0x0D', sys: 'ADCS' },
+  { id: 'tmp', x: 890, y: 380, w: 125, h: 100, t: 'TEMP', s: 'TMP102·0x48', sys: 'PAYLOAD' },
+  { id: 'gps', x: 560, y: 600, w: 190, h: 85, t: 'GPS', s: 'NEO-6M · UART', sys: 'ADCS' },
+  { id: 'cam', x: 975, y: 560, w: 205, h: 170, t: 'ESP32-CAM', s: 'payload simulator', sys: 'PAYLOAD' },
+  { id: 'drv_x', x: 1260, y: 330, w: 130, h: 80, t: 'L9110S · X', s: 'H-bridge', sys: 'ADCS', ax: 'x' },
+  { id: 'drv_y', x: 1260, y: 520, w: 130, h: 80, t: 'L9110S · Y', s: 'H-bridge', sys: 'ADCS', ax: 'y' },
+  { id: 'drv_z', x: 1260, y: 710, w: 130, h: 80, t: 'L9110S · Z', s: 'H-bridge', sys: 'ADCS', ax: 'z' },
+  { id: 'rw_x', x: 1450, y: 330, w: 130, h: 80, t: 'X WHEEL', s: 'reaction', sys: 'ADCS', ax: 'x' },
+  { id: 'rw_y', x: 1450, y: 520, w: 130, h: 80, t: 'Y WHEEL', s: 'reaction', sys: 'ADCS', ax: 'y' },
+  { id: 'rw_z', x: 1450, y: 710, w: 130, h: 80, t: 'Z WHEEL', s: 'reaction', sys: 'ADCS', ax: 'z' }
+];
+const NODEMAP = Object.fromEntries(NODES.map(n => [n.id, n]));
+
+/* ── wires ── */
+const WIRES = [
+  { id: 'pw_pv', bus: 'power', d: 'M210,85 H240', from: 'solar', to: 'mppt', lbl: 'PV input → MPPT', feed: 'pv' },
+  { id: 'pw_chg', bus: 'power', d: 'M380,85 H410', from: 'mppt', to: 'batt', lbl: 'Charge · 8.4 V CC/CV', feed: 'chg' },
+  { id: 'pw_bat', bus: 'power', d: 'M580,85 H610', from: 'batt', to: 'sw', lbl: 'VBAT 6.0–8.4 V', feed: 'main' },
+  { id: 'pw_sw', bus: 'power', d: 'M700,85 H730', from: 'sw', to: 'buck', lbl: 'VBAT (switched)', feed: 'main' },
+  { id: 'pw_5v', bus: 'power', d: 'M860,85 H875 V20 H1365 M945,20 V40 M1085,20 V40 M1225,20 V40 M1365,20 V40', from: 'buck', to: 'ef_bus,ef_payload,ef_tx,ef_adcs', lbl: '5 V regulated rail → 4 eFuse channels', feed: 'main' },
+  { id: 'pw_bus', bus: 'power', d: 'M945,130 V190 H150 V380 M365,190 V240', from: 'ef_bus', to: 'esp32,reg33', lbl: '5 V · BUS+CDHS channel', feed: 'ch:bus' },
+  { id: 'pw_33', bus: 'power', d: 'M365,310 V340 H952.5 M392.5,340 V380 M532.5,340 V380 M672.5,340 V380 M812.5,340 V380 M952.5,340 V380 M742.5,340 V600', from: 'reg33', to: 'sd,wdt,imu,mag,tmp,gps', lbl: '3.3 V sensor rail', feed: 'ch:bus' },
+  { id: 'pw_pay', bus: 'power', d: 'M1085,130 V560', from: 'ef_payload', to: 'cam', lbl: '5 V · PAYLOAD channel', feed: 'ch:payload' },
+  { id: 'pw_tx', bus: 'power', d: 'M1225,130 V200', from: 'ef_tx', to: 'tx', lbl: '5 V · TX channel', feed: 'ch:tx' },
+  { id: 'pw_adcs', bus: 'power', d: 'M1365,130 V160 H1415 V692 M1415,312 H1325 V330 M1415,502 H1325 V520 M1415,692 H1325 V710', from: 'ef_adcs', to: 'drv_x,drv_y,drv_z', lbl: '5 V · ADCS channel', feed: 'ch:adcs' },
+  { id: 'gnd', bus: 'gnd', d: 'M495,130 V150 H20 V960 H1400 M150,850 V960 M655,685 V960 M1077,730 V960 M1400,960 V400 H1390 M1400,590 H1390 M1400,780 H1390', from: 'batt', to: 'esp32,gps,cam,drv_x,drv_y,drv_z', lbl: 'Common ground (sensor returns omitted for clarity)' },
+
+  { id: 'i2c_imu_sda', bus: 'i2c', d: 'M260,410 H285 V540 H664.5 V480', from: 'esp32', to: 'imu', lbl: `SDA · GPIO${P.SDA} ↔ MPU-6050 @0x68` },
+  { id: 'i2c_imu_scl', bus: 'i2c', d: 'M260,422 H297 V552 H680.5 V480', from: 'esp32', to: 'imu', lbl: `SCL · GPIO${P.SCL} → MPU-6050` },
+  { id: 'i2c_mag_sda', bus: 'i2c', d: 'M260,410 H285 V540 H804.5 V480', from: 'esp32', to: 'mag', lbl: `SDA · GPIO${P.SDA} ↔ QMC5883L @0x0D` },
+  { id: 'i2c_mag_scl', bus: 'i2c', d: 'M260,422 H297 V552 H820.5 V480', from: 'esp32', to: 'mag', lbl: `SCL · GPIO${P.SCL} → QMC5883L` },
+  { id: 'i2c_tmp_sda', bus: 'i2c', d: 'M260,410 H285 V540 H944.5 V480', from: 'esp32', to: 'tmp', lbl: `SDA · GPIO${P.SDA} ↔ TMP102 @0x48` },
+  { id: 'i2c_tmp_scl', bus: 'i2c', d: 'M260,422 H297 V552 H960.5 V480', from: 'esp32', to: 'tmp', lbl: `SCL · GPIO${P.SCL} → TMP102` },
+  { id: 'spi_mosi', bus: 'spi', d: 'M260,446 H330', from: 'esp32', to: 'sd', lbl: `MOSI · GPIO${P.SD_MOSI} → SD` },
+  { id: 'spi_miso', bus: 'spi', d: 'M330,456 H260', from: 'sd', to: 'esp32', lbl: `MISO · SD → GPIO${P.SD_MISO}` },
+  { id: 'spi_sck', bus: 'spi', d: 'M260,466 H330', from: 'esp32', to: 'sd', lbl: `SCK · GPIO${P.SD_SCK} → SD` },
+  { id: 'spi_cs', bus: 'spi', d: 'M260,476 H330', from: 'esp32', to: 'sd', lbl: `CS · GPIO${P.SD_CS} → SD (active low)` },
+  { id: 'wdt_wdi', bus: 'wdt', d: 'M260,500 H524.5 V480', from: 'esp32', to: 'wdt', lbl: `WDI · GPIO${P.WDI} → MAX6369` },
+  { id: 'wdt_rst', bus: 'wdt', d: 'M540.5,480 V512 H260', from: 'wdt', to: 'esp32', lbl: `RESET · MAX6369 → ESP32 ${P.WDT_RST}` },
+  { id: 'uart_tx', bus: 'uart', d: 'M260,626 H560', from: 'esp32', to: 'gps', lbl: `ESP32 TX2 · GPIO${P.GPS_TX} → GPS RX` },
+  { id: 'uart_rx', bus: 'uart', d: 'M560,640 H260', from: 'gps', to: 'esp32', lbl: `GPS TX → ESP32 RX2 · GPIO${P.GPS_RX}` },
+  { id: 'sync', bus: 'sync', d: 'M260,700 H975', from: 'esp32', to: 'cam', lbl: `PAYLOAD SYNC · GPIO${P.SYNC} → ESP32-CAM` },
+  { id: 'ready', bus: 'ready', d: 'M975,712 H260', from: 'cam', to: 'esp32', lbl: `PAYLOAD READY · ESP32-CAM → GPIO${P.READY}` }
+];
+// wheel PWM lines: 2 per wheel, routed along the bottom corridor
+[['x', 'A', P.WX_A], ['x', 'B', P.WX_B], ['y', 'A', P.WY_A], ['y', 'B', P.WY_B], ['z', 'A', P.WZ_A], ['z', 'B', P.WZ_B]].forEach(([ax, side, pin], i) => {
+  const py = 760 + 12 * i, vx = 300 - 5 * i, cy = 880 + 8 * i, lx = 1205 + 9 * i;
+  const ty = NODEMAP['drv_' + ax].y + (side === 'A' ? 30 : 50);
+  WIRES.push({ id: `pwm_${ax}${side}`, bus: 'pwm', d: `M260,${py} H${vx} V${cy} H${lx} V${ty} H1260`, from: 'esp32', to: 'drv_' + ax, lbl: `PWM ${ax.toUpperCase()} · I${side} · GPIO${pin} → L9110S`, ax, side, py });
+});
+['x', 'y', 'z'].forEach(ax => {
+  const y = NODEMAP['drv_' + ax].y;
+  WIRES.push({ id: 'mot_' + ax, bus: 'pwm', d: `M1390,${y + 30} H1450 M1390,${y + 50} H1450`, from: 'drv_' + ax, to: 'rw_' + ax, lbl: `Motor leads · ${ax.toUpperCase()} wheel`, feed: 'mot:' + ax });
+});
+const WIREMAP = Object.fromEntries(WIRES.map(w => [w.id, w]));
+
+const JUNCTIONS = [
+  ['power', 945, 20], ['power', 1085, 20], ['power', 1225, 20], ['power', 365, 190],
+  ['power', 392.5, 340], ['power', 532.5, 340], ['power', 672.5, 340], ['power', 742.5, 340], ['power', 812.5, 340],
+  ['power', 1415, 312], ['power', 1415, 502],
+  ['gnd', 150, 960], ['gnd', 655, 960], ['gnd', 1077, 960], ['gnd', 1400, 590], ['gnd', 1400, 780],
+  ['i2c', 664.5, 540], ['i2c', 804.5, 540], ['i2c', 680.5, 552], ['i2c', 820.5, 552]
+];
+
+const BUSES = [
+  ['power', 'POWER'], ['gnd', 'GROUND'], ['i2c', 'I²C'], ['uart', 'UART'], ['spi', 'SPI'],
+  ['pwm', 'WHEEL PWM'], ['sync', 'SYNC'], ['ready', 'READY'], ['wdt', 'WATCHDOG']
+];
+
+/* ── content ── */
+const INFO = {
+  solar: { part: 'Flight: 0.04 m² deployable wings on the sun face · Demo: small PV panel',
+    role: 'Primary power source. Feeds the MPPT charger.',
+    flight: '16.5 W peak. 16.5 W / 0.04 m² = 412 W/m² ≈ 30 % of the 1361 W/m² solar constant — triple-junction-cell class.',
+    demo: () => `${CFG.SOLAR_W.demo} W assumed under a lamp (edit CONFIG).`,
+    why: 'Sized so sunlit imaging (11.5 W) still leaves ≈5 W to recharge the battery.',
+    fail: 'No charge input: every orbit behaves like an eclipse. SoC falls below 70 % and CDHS enters SAFE mode, shedding payload and TX.',
+    q: 'All loads add up to exactly 16.5 W. Isn’t that zero margin?',
+    a: 'They never run together. Imaging (bus + payload = 11.5 W) and downlink (bus + TX = 8.5 W) are separate phases, so the array always has margin in sunlight. Toggle the TX eFuse on to see the all-on case.',
+    ctl: [['eclipse', () => S.ecl.active ? 'END ECLIPSE' : 'START ECLIPSE']] },
+  mppt: { part: 'CN3791-based MPPT solar charger, configured for 2S (8.4 V CC/CV)',
+    role: 'Holds the panel at its maximum-power voltage and charges the pack constant-current, then constant-voltage.',
+    flight: 'Input: array · output: 8.4 V max charge voltage (2 × 4.2 V).', demo: 'Same module in the kit.',
+    why: 'A panel’s maximum-power voltage drifts with temperature and light; MPPT tracks it instead of wasting power. It must be a 2S charger — a single-cell TP4056 cannot charge a 7.4 V pack.',
+    fail: 'Stops charging (battery drains) or overcharges (cell damage) — which is why the pack also carries a 2S protection board (BMS).',
+    q: 'Why is the charger upstream of the main switch?',
+    a: 'So the switch isolates every load while the pack can still be topped up on the bench — the same idea as a CubeSat’s deployment-switch inhibits, which keep the bus dead until ejection.' },
+  batt: { part: '2S Li-ion pack · 7.4 V nominal · 2600 mAh',
+    role: 'Energy store for the 33-min eclipse and for peak loads.',
+    flight: '20 Wh (poster). 6.0–8.4 V. DoD floor 30 %.', demo: '7.4 V × 2.6 Ah = 19.2 Wh.',
+    why: '2S keeps the pack voltage above 5 V at all states of charge, so a buck converter can regulate efficiently.',
+    fail: 'No eclipse power → CDHS resets every orbit. Discharging past the 30 % DoD floor shortens cycle life.',
+    q: 'Why cap depth of discharge at 30 %?',
+    a: 'A 95-min orbit means ≈15 charge cycles a day, ≈5,500 a year. Shallow cycling keeps Li-ion capacity over that many cycles. Our eclipse uses only 12.5 %.',
+    ctl: [['drain', () => 'DRAIN TO 69 %']] },
+  sw: { part: 'SPST main switch', role: 'Master inhibit between the battery and every load.',
+    flight: 'Carries the full bus current: 16.5 W / 7.4 V ≈ 2.2 A worst case.', demo: 'Rocker switch on the kit.',
+    why: 'One physical action de-energises the whole spacecraft for safe handling. Flight equivalent: deployment switches plus a remove-before-flight pin.',
+    fail: 'Open: total loss of power. Welded shut: the satellite cannot be inhibited.',
+    q: 'What’s the flight equivalent?',
+    a: 'CubeSat deployment switches (plus a remove-before-flight pin) hold the satellite completely off inside the dispenser until it is ejected.',
+    ctl: [['mainsw', () => S.mainSw ? 'OPEN SWITCH' : 'CLOSE SWITCH']] },
+  buck: { part: 'Buck converter (e.g. MP1584 / LM2596) · 7.4 V → 5.0 V',
+    role: 'Regulated 5 V rail feeding the four eFuse channels.',
+    flight: 'Up to 16.5 W → 3.3 A at 5 V (a flight build needs a converter rated for this).', demo: '≈0.8 A typical at kit loads.',
+    why: 'Input is always above output, so it must step down. A buck is ~90 % efficient; a linear regulator would burn (7.4 − 5) / 7.4 ≈ 32 % of the power as heat.',
+    fail: 'Single point of failure — every 5 V load drops at once. Flight designs duplicate this converter.',
+    q: 'Why not a boost converter?',
+    a: 'A boost only raises voltage. With a 6.0–8.4 V pack and a 5 V rail we always need to step down.' },
+  reg33: { part: '3.3 V LDO (e.g. AMS1117-3.3), fed from the BUS+CDHS channel',
+    role: 'Clean 3.3 V for sensors, GPS, recorder and watchdog.',
+    flight: '—', demo: '≈0.15 A worst case → (5 − 3.3) × 0.15 ≈ 0.26 W lost as heat.',
+    why: 'At this current the loss is tiny, and an LDO has no switching ripple to corrupt IMU and magnetometer readings.',
+    fail: 'All sensors, GPS, SD logging and the watchdog go dark; CDHS reports I²C bus errors.',
+    q: 'Why an LDO here but a buck for 5 V?',
+    a: 'Current is small, so efficiency barely matters — and low noise matters a lot for the magnetometer and IMU.' },
+  tx: { part: 'Flight: 5 W X-band transmitter · Demo: dummy load / low-power telemetry',
+    role: 'Downlink to Dubai in the same orbit, and polar dump to Troll / Inuvik during eclipse.',
+    flight: '5 W · +13.8 dB link margin (poster).', demo: () => `${CFG.CH.tx.demoW} W stand-in (edit CONFIG).`,
+    why: 'Onboard processing cuts ≈133 Gbit to ≈32 Mbit per pass, so a 5 W radio closes the link with margin.',
+    fail: 'No downlink; products wait on the recorder for a later pass.',
+    q: 'Why does TX appear in the eclipse energy?',
+    a: 'CONOPS dumps data to polar ground stations while in eclipse: 3.5 W bus × 33 min + 5 W TX × 7 min = 2.51 Wh = 12.5 % DoD. Run ECLIPSE and watch TX switch off after 7 min.' },
+  esp32: { part: 'ESP32 DevKit (ESP-WROOM-32) · dual-core 240 MHz',
+    role: 'CDHS: polls sensors, runs the ADCS loop, sequences the payload, logs to SD, kicks the watchdog.',
+    flight: 'CDHS 400 mW (poster).', demo: '≈0.4 W with Wi-Fi off.',
+    why: 'Hardware I²C, SPI, UART and 16 PWM channels on one chip; two cores let the ADCS loop run separately from housekeeping.',
+    fail: 'A firmware hang is caught by the hardware watchdog, which pulls EN low and reboots the chip.',
+    q: 'Why does a wheel keep spinning while CDHS is hung?',
+    a: 'The LEDC PWM peripheral keeps generating the last duty cycle in hardware, so a frozen command keeps torquing the spacecraft. That is exactly why the external watchdog must reset the chip.',
+    ctl: [['hang', () => 'INJECT HANG']] },
+  sd: { part: 'microSD module (SPI mode)', role: 'Recorder: telemetry frames, payload metadata, fault log.',
+    flight: 'Mass memory for the raw cube before onboard processing.', demo: 'SPI, 3.3 V, up to ~100 mA while writing.',
+    why: 'The raw cube is ≈133 Gbit (≈16.6 GB) per pass. It must be buffered before it is reduced to ≈32 Mbit.',
+    fail: 'History is lost. The spacecraft keeps flying but there is no record for fault analysis.',
+    q: 'Where does 133 Gbit come from?',
+    a: '123 km ÷ 60 m ≈ 2,050 pixels across × ≈57,000 lines in 8 min × 96 bands × 12 bit ≈ 134 Gbit. It is masked, reduced to the 681 nm line height → Chl-a, and only ≈32 Mbit is downlinked.' },
+  wdt: { part: 'MAX6369 pin-selectable hardware watchdog',
+    role: 'Independent supervisor: if WDI stops toggling, it resets the ESP32 through EN.',
+    flight: () => `Timeout ${CFG.WDT_TIMEOUT_S} s (set by SET pins) · kicked every 1 s.`, demo: 'Same part in the kit.',
+    why: 'A software watchdog dies with the software. An external chip still works if the firmware locks up or a radiation upset corrupts the processor.',
+    fail: 'Without it, one hang is permanent loss of the satellite. Try BYPASS WATCHDOG, then CDHS HANG.',
+    q: 'Why is the watchdog a separate chip?',
+    a: 'It shares nothing with the code it supervises. Whatever state the processor is stuck in, the MAX6369 only needs WDI to stop toggling to act.',
+    ctl: [['bypass', () => S.f.bypass ? 'RESTORE WATCHDOG' : 'BYPASS WATCHDOG']] },
+  imu: { part: 'MPU-6050 6-axis IMU · I²C 0x68', role: 'ADCS rate sensor (gyro) plus accelerometer.',
+    flight: 'Rate sensor role (poster: “rate sensors”).', demo: '3.3 V · ~4 mA.',
+    why: 'Body rates feed the reaction-wheel control loop and detumbling.',
+    fail: 'ADCS loses rate feedback; the wheels are held at zero.',
+    q: 'What does an accelerometer do in orbit?',
+    a: 'In free fall it reads ≈0 g, so it only helps on the ground (levelling the demo). ADCS uses the gyro.' },
+  mag: { part: 'QMC5883L 3-axis magnetometer · I²C 0x0D', role: 'Measures Earth’s magnetic field vector for attitude determination and detumble.',
+    flight: 'Magnetometer role (poster box 06).', demo: '3.3 V · ~2 mA.',
+    why: 'Field vector + sun vector gives full 3-axis attitude; B-dot detumble uses how fast the field vector changes.',
+    fail: 'I²C returns NACK at 0x0D; ADCS falls back to gyro-only propagation, which drifts.',
+    q: 'Why keep it away from the wheels?',
+    a: 'Motor magnets and currents distort the very field it is trying to measure.',
+    ctl: [['mag', () => S.f.mag ? 'RESTORE SENSOR' : 'INJECT DROPOUT']] },
+  tmp: { part: 'TMP102 temperature sensor · I²C 0x48', role: 'Payload interface temperature — stands in for HYPER-A detector telemetry.',
+    flight: 'Detector ≈ −10 °C, passively cooled (poster).', demo: '±0.5 °C · ~10 µA. Reads bench temperature.',
+    why: 'Detector dark current depends strongly on temperature, so every frame is tagged with it for calibration.',
+    fail: 'Frames lose their calibration context.',
+    q: 'Why no cooler?',
+    a: 'A passive radiator on the anti-sun face keeps the detector near −10 °C, saving the power and mass of an active cooler — hence “no cooler rail”.' },
+  gps: { part: 'u-blox NEO-6M · UART 9600 8N1 · NMEA 0183', role: 'Position and time for orbit knowledge and image time-tagging.',
+    flight: 'Stand-in for a space-grade GNSS receiver.', demo: '3.3 V · ~45 mA.',
+    why: 'Every image line must be time-tagged so pixels can be geolocated to the intake sites.',
+    fail: 'NMEA keeps arriving but with fix quality 0; CDHS keeps time on its own clock and propagates the orbit.',
+    q: 'Would a NEO-6M work in orbit?',
+    a: 'No — consumer receivers stop reporting at high altitude and velocity (export limits). Flight needs a space-grade GNSS receiver; the NEO-6M demonstrates the interface.',
+    ctl: [['gps', () => S.f.gps ? 'RESTORE FIX' : 'KILL FIX']] },
+  cam: { part: 'AI-Thinker ESP32-CAM (OV2640) · payload simulator', role: 'Stands in for HYPER-A: SYNC triggers a capture, READY reports a frame.',
+    flight: 'HYPER-A budget 8 W · 96 bands 400–900 nm.', demo: '≈1.2 W, peaking during capture · 470 µF bulk capacitor.',
+    why: 'Exercises the real payload interface — trigger, handshake, data and power switching — without a 96-band sensor. RGB has three broad bands, so it cannot see the 681 nm line.',
+    fail: 'Capture current spikes can brown out the module — the 470 µF capacitor holds the rail up.',
+    q: 'Does the camera prove the science?',
+    a: 'No. It proves the interface and sequencing. The science case is the 681 nm fluorescence line, which needs HYPER-A’s narrow bands.',
+    ctl: [['short', () => S.f.short ? 'REMOVE SHORT' : 'INJECT SHORT']] },
+  drv: { part: 'L9110S dual H-bridge (one channel per wheel)', role: 'Bidirectional speed control for one reaction wheel.',
+    flight: 'Wheel-driver role (poster box 06).', demo: '2.5–12 V · ≈0.8 A per channel.',
+    why: 'A wheel must spin both ways to create ± torque. PWM on IA drives one direction, on IB the other; duty cycle sets speed.',
+    fail: 'Stall: current climbs, CDHS sees no rate response and disables that wheel before the ADCS eFuse trips.',
+    q: () => `Why PWM at ${CFG.PWM_KHZ} kHz?`, a: 'It is above human hearing and smooths the motor current.',
+    ctl: [['stall', () => S.f.stall ? 'CLEAR X STALL' : 'STALL X WHEEL']] },
+  rw: { part: 'DC motor + flywheel', role: 'Momentum exchange: speeding a wheel up turns the spacecraft the opposite way.',
+    flight: 'Part of the ADCS channel (see eFuse · ADCS).', demo: '≈0.6 W per wheel running.',
+    why: 'Fine pointing for the 8-min nadir imaging pass (line across track = 123 km strip).',
+    fail: 'Wheels slowly saturate and need magnetorquers to dump momentum — listed in poster box 06, not built in this kit.',
+    q: 'What is wheel saturation?',
+    a: 'Disturbance torques keep adding momentum until a wheel hits max speed; magnetorquers then push against Earth’s field to unload it.',
+    ctl: [['stall', () => S.f.stall ? 'CLEAR X STALL' : 'STALL X WHEEL']] }
+};
+const EF_ROLE = {
+  bus: 'Feeds the ESP32 CDHS and, through the 3.3 V LDO, every sensor, the GPS, the recorder and the watchdog.',
+  payload: 'Feeds the payload (ESP32-CAM stand-in for HYPER-A). Inhibited in eclipse; shed in SAFE mode.',
+  tx: 'Feeds the transmitter. On for downlink passes and for the 7-min polar dump in eclipse; shed in SAFE mode.',
+  adcs: 'Feeds the three L9110S drivers and reaction wheels.'
+};
+const BUSINFO = {
+  power: { name: 'POWER', spec: '8.4 V charge · 6.0–8.4 V battery · 5 V regulated · 3.3 V sensor rail',
+    body: 'Solar → MPPT → 2S battery → main switch → 5 V buck → four eFuse channels, each with its own switch and current limit. Moving dashes = current flowing; faster = more current. Red = tripped.' },
+  gnd: { name: 'GROUND', spec: 'Common 0 V reference',
+    body: 'Every module shares one ground. Motor and camera current spikes return close to the rail rather than through sensor grounds. Sensor returns are omitted from the drawing for clarity.' },
+  i2c: { name: 'I²C', spec: `2-wire · SDA GPIO${P.SDA} / SCL GPIO${P.SCL} · 400 kHz · open-drain with pull-ups`,
+    body: 'One shared pair of wires, three sensors, three unique addresses — no conflicts. The ESP32 writes a register address, then reads bytes back. SCL flickers during each transaction; NACK = no device answered.',
+    items: ['0x68 MPU-6050 · 14-byte burst · 2 Hz', '0x0D QMC5883L · 6 bytes · 1 Hz', '0x48 TMP102 · 2 bytes · every 3 s'] },
+  uart: { name: 'UART', spec: `9600 baud 8N1 · ESP32 UART2 · RX GPIO${P.GPS_RX} / TX GPIO${P.GPS_TX}`,
+    body: 'Asynchronous serial with no clock line — both ends agree on the baud rate. The NEO-6M streams NMEA sentences once per second whether or not anyone is listening.' },
+  spi: { name: 'SPI', spec: `4-wire · MOSI ${P.SD_MOSI} · MISO ${P.SD_MISO} · SCK ${P.SD_SCK} · CS ${P.SD_CS}`,
+    body: 'Clocked, full-duplex and much faster than I²C — right for bulk writes. Each 512-byte block write (CMD24) is answered with a data-response token: 0x05 = accepted.' },
+  pwm: { name: 'WHEEL PWM', spec: `6 × LEDC PWM · 2 per wheel (IA / IB) · ${CFG.PWM_KHZ} kHz`,
+    body: 'PWM on IA spins a wheel one way, on IB the other; dash speed shows duty cycle. The ESP32 LEDC hardware keeps generating the last duty even if the firmware freezes.' },
+  sync: { name: 'PAYLOAD SYNC', spec: `GPIO${P.SYNC} → ESP32-CAM`,
+    body: 'CDHS-driven trigger edge. Stands in for HYPER-A line sync: exposure is tied to the spacecraft clock so each line can be time-tagged and geolocated.' },
+  ready: { name: 'PAYLOAD READY', spec: `ESP32-CAM → GPIO${P.READY}`,
+    body: 'Payload-driven handshake: “frame captured”. If READY never arrives, CDHS flags a payload timeout instead of waiting forever.' },
+  wdt: { name: 'WATCHDOG', spec: `WDI GPIO${P.WDI} → MAX6369 · RESET → ESP32 ${P.WDT_RST}`,
+    body: `Firmware toggles WDI every 1 s. If toggling stops for ${CFG.WDT_TIMEOUT_S} s, the MAX6369 pulls EN low and reboots the ESP32 — independently of the software it supervises.` }
+};
+
+/* ── state ── */
+const S = {
+  mode: 'flight', mainSw: true, sunlit: true, soc: 1, safe: false,
+  ef: { bus: { on: true, trip: false }, payload: { on: true, trip: false }, tx: { on: false, trip: false }, adcs: { on: true, trip: false } },
+  f: { short: false, stall: false, mag: false, gps: false, bypass: false },
+  ecl: { active: false, t: 0, soc0: 1, dump: false },
+  cdhs: { state: 'off', t: 0, up: 0, boots: 0 },
+  wdt: { el: 0 },
+  adcs: { rate: { x: 0.8, y: -0.5, z: 1.2 }, duty: { x: 0, y: 0, z: 0 }, rpm: { x: 0, y: 0, z: 0 }, ang: { x: 0, y: 0, z: 0 }, hdg: 30, stallT: 0, stallExtra: 0, xOff: false },
+  cam: { state: 'idle', frames: 0 }, sd: { n: 0, lba: 0x1200 }, gpsN: 0, temp: 24.6,
+  pw: { bus: 0, payload: 0, tx: 0, adcs: 0, load: 0, solar: 0, net: 0 },
+  acc: { imu: 0, mag: 250, tmp: 700, sd: 1100, wdi: 400, pwm: 1500, pay: 3000, eps: 900, gps: 600 },
+  t0: performance.now()
+};
+
+/* ── power model ── */
+const base = ch => CFG.CH[ch][S.mode === 'flight' ? 'flightW' : 'demoW'];
+const limit = ch => CFG.CH[ch].limitA[S.mode];
+const battWh = () => CFG.BATT_WH[S.mode];
+const rail5 = () => S.mainSw && S.soc > 0.005;
+function chState(ch) {
+  const e = S.ef[ch];
+  if (e.trip) return 'trip';
+  if (!rail5()) return 'off';
+  if (S.safe && (ch === 'payload' || ch === 'tx')) return 'shed';
+  if (ch === 'payload' && !S.sunlit) return 'inhibit';
+  if (ch === 'tx' && S.ecl.active) return S.ecl.t < CFG.TX_DUMP_MIN * 60 ? 'dump' : 'off';
+  return e.on ? 'on' : 'off';
+}
+const chOn = ch => { const s = chState(ch); return s === 'on' || s === 'dump'; };
+function chW(ch) {
+  if (!chOn(ch)) return 0;
+  const b = base(ch);
+  if (ch === 'adcs') {
+    const run = S.cdhs.state === 'run' || S.cdhs.state === 'hung';
+    let w = run ? b : b * 0.15;
+    if (S.adcs.xOff && run) w -= b / 3;
+    return Math.max(0, w + S.adcs.stallExtra);
+  }
+  if (ch === 'payload' && S.mode === 'demo' && S.cam.state === 'capture') return b * 1.2;
+  return b;
+}
+function eclipsePrediction() {
+  const busW = base('bus') + base('adcs');
+  const txW = S.ef.tx.trip ? 0 : base('tx');
+  const wh = busW * CFG.ECLIPSE_MIN / 60 + txW * CFG.TX_DUMP_MIN / 60;
+  return { busW, txW, wh, dod: wh / battWh() };
+}
+
+/* ── logging ── */
+const LOG = []; let logFilter = 'all', logPaused = false;
+const TAG = { i2c: 'I²C', uart: 'UART', spi: 'SPI', pwm: 'PWM', payload: 'PAYLD', wdt: 'WDT', eps: 'EPS', sys: 'SYS' };
+const mt = () => 'T+' + ((performance.now() - S.t0) / 1000).toFixed(1).padStart(6, '0');
+const passes = e => logFilter === 'all' ? !e.quiet : e.bus === logFilter;
+function log(bus, msg, lvl = '', quiet = false) {
+  const e = { t: mt(), bus, msg, lvl, quiet };
+  LOG.push(e); if (LOG.length > 400) LOG.shift();
+  if (bus === 'sys') { $('#lastTxt').textContent = `${e.t}  ${msg}`; $('#lastEvt').style.borderLeftColor = lvl === 'bad' ? 'var(--red)' : lvl === 'warn' ? 'var(--amber)' : 'var(--cyan)'; }
+  if (!logPaused && passes(e)) addRow(e);
+}
+function addRow(e) {
+  const box = $('#log');
+  const near = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  const r = document.createElement('div'); r.className = 'row ' + e.lvl;
+  r.innerHTML = `<span class="t">${e.t}</span><span class="g g-${e.bus}">${TAG[e.bus]}</span><span class="m"></span>`;
+  r.lastChild.textContent = e.msg;
+  box.appendChild(r);
+  while (box.children.length > 250) box.firstChild.remove();
+  if (near) box.scrollTop = box.scrollHeight;
+}
+function rebuildLog() { const box = $('#log'); box.innerHTML = ''; LOG.filter(passes).slice(-250).forEach(addRow); box.scrollTop = box.scrollHeight; }
+
+/* ── SVG build ── */
+const L = {};
+function build() {
+  const defs = E('defs', null, svg);
+  const grid = E('pattern', { id: 'grid', width: 40, height: 40, patternUnits: 'userSpaceOnUse' }, defs);
+  E('path', { d: 'M40,0 H0 V40', fill: 'none', stroke: '#0a1824', 'stroke-width': 1 }, grid);
+  E('rect', { x: 0, y: 0, width: 1600, height: 990, fill: 'url(#grid)' }, svg);
+  L.wires = E('g', null, svg); L.hits = E('g', null, svg); L.jd = E('g', null, svg);
+  L.labels = E('g', null, svg); L.nodes = E('g', null, svg); L.pk = E('g', null, svg);
+
+  [['5 V RAIL', 1000, 14, 'power'], ['5 V · BUS+CDHS', 170, 184, 'power'], ['3.3 V', 440, 334, 'power'],
+   ['5 V · ADCS', 1425, 250, 'power'], ['5 V · PAYLOAD', 1092, 300, 'power'], ['I²C BUS', 330, 572, 'i2c'],
+   ['WHEEL PWM ×6', 560, 875, 'pwm'], ['COMMON GROUND', 700, 980, 'gnd']].forEach(([t, x, y, b]) => {
+    const e = E('text', { class: 'rail b-' + b, x, y, fill: `var(--c-${b})` }, L.labels); e.textContent = t;
+  });
+
+  for (const w of WIRES) {
+    w.el = E('path', { d: w.d, class: `wire b-${w.bus}` }, L.wires);
+    w.hit = E('path', { d: w.d, class: `hit b-${w.bus}` }, L.hits);
+    if (!w.d.slice(1).includes('M')) w.len = w.el.getTotalLength();
+    w.hit.addEventListener('mouseenter', ev => { hoverBus(w.bus); showTip(ev, `${BUSINFO[w.bus].name} · ${w.lbl}`); });
+    w.hit.addEventListener('mousemove', ev => showTip(ev));
+    w.hit.addEventListener('mouseleave', () => { clearFocus(); hideTip(); });
+    w.hit.addEventListener('click', () => select({ type: 'bus', bus: w.bus, wire: w.id }));
+  }
+  for (const [b, x, y] of JUNCTIONS) E('circle', { class: `jd b-${b}`, cx: x, cy: y, r: 4, fill: `var(--c-${b})` }, L.jd);
+
+  for (const n of NODES) {
+    const g = n.g = E('g', { class: 'node', tabindex: 0, role: 'button', 'aria-label': `${n.t} ${n.s}`, style: `--sc:${SYSC[n.sys]}` }, L.nodes);
+    E('rect', { class: 'body', x: n.x, y: n.y, width: n.w, height: n.h, rx: 10 }, g);
+    E('rect', { class: 'cap', x: n.x, y: n.y, width: 7, height: n.h, rx: 3 }, g);
+    E('text', { class: 'nt', x: n.x + 16, y: n.y + 22 }, g).textContent = n.t;
+    E('text', { class: 'ns', x: n.x + 16, y: n.y + 39 }, g).textContent = n.s;
+    n.live = E('text', { class: 'nl', x: n.x + 16, y: n.y + n.h - 14 }, g);
+    n.led = E('circle', { class: 'led', cx: n.x + n.w - 13, cy: n.y + 13, r: 4.5 }, g);
+    g.addEventListener('click', () => select({ type: 'node', id: n.id }));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select({ type: 'node', id: n.id }); } });
+    g.addEventListener('mouseenter', () => hoverNode(n.id));
+    g.addEventListener('mouseleave', clearFocus);
+    if (n.id.startsWith('rw_')) {
+      const cx = n.x + n.w - 32, cy = n.y + n.h / 2;
+      const o = E('g', { transform: `translate(${cx},${cy})` }, g);
+      n.rotor = E('g', { class: 'rotor' }, o);
+      E('circle', { r: 22 }, n.rotor);
+      for (let k = 0; k < 3; k++) { const a = k * 2.0944; E('line', { x1: 0, y1: 0, x2: 19 * Math.cos(a), y2: 19 * Math.sin(a) }, n.rotor); }
+      E('circle', { class: 'hub', r: 4 }, n.rotor);
+    }
+    if (n.id === 'cam') {
+      n.lens = E('circle', { class: 'lens', cx: n.x + n.w - 44, cy: n.y + 78, r: 26 }, g);
+      E('circle', { class: 'lens', cx: n.x + n.w - 44, cy: n.y + 78, r: 11 }, g);
+      E('text', { class: 'ns', x: n.x + 16, y: n.y + 62 }, g).textContent = 'OV2640 · RGB';
+      E('text', { class: 'ns', x: n.x + 16, y: n.y + 80 }, g).textContent = '470 µF bulk cap';
+      n.frames = E('text', { class: 'ns', x: n.x + 16, y: n.y + 98 }, g);
+    }
+    if (n.id === 'esp32') {
+      E('text', { class: 'ns', x: n.x + 16, y: n.y + 70 }, g).textContent = 'STATE';
+      n.big = E('text', { class: 'big', x: n.x + 16, y: n.y + 94 }, g);
+      n.l1 = E('text', { class: 'ns', x: n.x + 16, y: n.y + 118 }, g);
+      n.l2 = E('text', { class: 'ns', x: n.x + 16, y: n.y + 136 }, g);
+      n.l3 = E('text', { class: 'ns', x: n.x + 16, y: n.y + 154 }, g);
+      E('rect', { x: n.x + 16, y: n.y + 190, width: 110, height: 130, rx: 4, fill: 'none', stroke: '#1d3040' }, g);
+      E('text', { class: 'ns', x: n.x + 24, y: n.y + 212 }, g).textContent = 'ESP-WROOM';
+      E('text', { class: 'ns', x: n.x + 24, y: n.y + 228 }, g).textContent = '-32';
+      E('text', { class: 'ns', x: n.x + 16, y: n.y + 350 }, g).textContent = 'core 0: ADCS loop';
+      E('text', { class: 'ns', x: n.x + 16, y: n.y + 368 }, g).textContent = 'core 1: housekeeping';
+      n.draft = E('text', { class: 'ns', x: n.x + 16, y: n.y + 400, fill: 'var(--amber)' }, g);
+      const pins = [[410, 'SDA', P.SDA], [422, 'SCL', P.SCL], [446, 'MOSI', P.SD_MOSI], [456, 'MISO', P.SD_MISO], [466, 'SCK', P.SD_SCK], [476, 'CS', P.SD_CS],
+        [500, 'WDI', P.WDI], [512, 'RST→', P.WDT_RST], [626, 'TX2', P.GPS_TX], [640, 'RX2', P.GPS_RX], [700, 'SYNC', P.SYNC], [712, 'RDY', P.READY]];
+      WIRES.filter(w => w.bus === 'pwm' && w.py).forEach(w => pins.push([w.py, `${w.ax.toUpperCase()}-I${w.side}`, P[`W${w.ax.toUpperCase()}_${w.side}`]]));
+      pins.forEach(([y, nm, pin]) => { E('text', { class: 'pinl', x: 252, y: y + 3.5 }, g).textContent = `${nm} ${pin}`; });
+    }
+  }
+}
+
+/* ── hover / focus ── */
+function setFocus(nodeIds, wireSet) {
+  svg.classList.add('focus');
+  for (const n of NODES) n.g.classList.toggle('hl', nodeIds.has(n.id));
+  for (const w of WIRES) w.el.classList.toggle('hl', wireSet.has(w.id));
+}
+function clearFocus() {
+  if (tourFocus) { tourFocus(); return; }
+  if (subFocus) { focusSub(subFocus); return; }
+  if (pinFocus) { pinFocus(); return; }
+  svg.classList.remove('focus');
+  NODES.forEach(n => n.g.classList.remove('hl')); WIRES.forEach(w => w.el.classList.remove('hl'));
+}
+const ends = w => [w.from, ...w.to.split(',')];
+function hoverNode(id) {
+  const ws = new Set(), ns = new Set([id]);
+  for (const w of WIRES) if (ends(w).includes(id)) { ws.add(w.id); ends(w).forEach(x => ns.add(x)); }
+  setFocus(ns, ws);
+}
+function hoverBus(bus) {
+  const ws = new Set(), ns = new Set(), set = [].concat(bus);
+  for (const w of WIRES) if (set.includes(w.bus)) { ws.add(w.id); ends(w).forEach(x => ns.add(x)); }
+  setFocus(ns, ws);
+}
+let subFocus = null, tourFocus = null, pinFocus = null;
+const NOHOVER = matchMedia('(hover: none)').matches;
+const isSheet = () => innerWidth <= 760;
+const openSheet = o => $('#inspector').classList.toggle('open', !!o);
+function focusSub(sys) {
+  const ns = new Set(NODES.filter(n => n.sys === sys).map(n => n.id)), ws = new Set();
+  for (const w of WIRES) if (ends(w).some(x => ns.has(x))) ws.add(w.id);
+  svg.classList.add('focus');
+  for (const n of NODES) n.g.classList.toggle('hl', ns.has(n.id));
+  for (const w of WIRES) w.el.classList.toggle('hl', ws.has(w.id));
+}
+const tip = $('#tip'), wrap = $('#schemWrap');
+function showTip(ev, text) {
+  if (NOHOVER) return;
+  if (text) tip.textContent = text;
+  const r = wrap.getBoundingClientRect();
+  tip.style.display = 'block';
+  let x = ev.clientX - r.left + wrap.scrollLeft + 14, y = ev.clientY - r.top + wrap.scrollTop + 14;
+  if (x + tip.offsetWidth > wrap.scrollLeft + r.width - 6) x = ev.clientX - r.left + wrap.scrollLeft - tip.offsetWidth - 10;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => { tip.style.display = 'none'; };
+
+/* ── packets ── */
+const PK = [];
+function packet(wid, o = {}) {
+  const w = WIREMAP[wid];
+  const dur = o.dur || 700;
+  if (!w || svg.classList.contains('hide-' + w.bus) || document.hidden) { if (o.done) setTimeout(o.done, dur); return; }
+  const g = E('g', { class: `pk b-${w.bus}${o.fail ? ' fail' : ''}` }, L.pk);
+  E('circle', { r: 5 }, g);
+  if (o.label) E('text', { y: -9 }, g).textContent = o.label;
+  w.act = (w.act || 0) + 1; w.el.classList.add('act');
+  PK.push({ w, g, start: performance.now(), dur, rev: !!o.rev, done: o.done });
+}
+function flash(wid, cls, ms) {
+  const w = WIREMAP[wid]; if (!w) return;
+  w.el.classList.add(cls); clearTimeout(w['t_' + cls]);
+  w['t_' + cls] = setTimeout(() => w.el.classList.remove(cls), ms);
+}
+let lastFrame = performance.now();
+function anim(now) {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  for (let i = PK.length - 1; i >= 0; i--) {
+    const p = PK[i]; const k = (now - p.start) / p.dur;
+    if (k >= 1) {
+      p.g.remove(); PK.splice(i, 1);
+      if (--p.w.act <= 0) p.w.el.classList.remove('act');
+      if (p.done) p.done();
+      continue;
+    }
+    const pt = p.w.el.getPointAtLength((p.rev ? 1 - k : k) * p.w.len);
+    p.g.setAttribute('transform', `translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)})`);
+  }
+  for (const ax of ['x', 'y', 'z']) {
+    S.adcs.ang[ax] = (S.adcs.ang[ax] + S.adcs.rpm[ax] * 0.25 * dt) % 360;
+    NODEMAP['rw_' + ax].rotor.setAttribute('transform', `rotate(${S.adcs.ang[ax].toFixed(1)})`);
+  }
+  requestAnimationFrame(anim);
+}
+
+/* ── bus traffic ── */
+function every(k, ms, dt) { S.acc[k] += dt * 1000; if (S.acc[k] >= ms) { S.acc[k] = S.acc[k] % ms; return true; } return false; }
+const I2CDEV = { imu: { addr: '0x68', reg: '3B', n: 14, name: 'MPU-6050' }, mag: { addr: '0x0D', reg: '00', n: 6, name: 'QMC5883L' }, tmp: { addr: '0x48', reg: '00', n: 2, name: 'TMP102' } };
+function i2cRead(dev) {
+  const D = I2CDEV[dev], sda = `i2c_${dev}_sda`;
+  flash(`i2c_${dev}_scl`, 'clk', 1300);
+  packet(sda, { label: `${D.addr}·W`, dur: 650, done: () => {
+    if (S.cdhs.state !== 'run') return;
+    if (dev === 'mag' && S.f.mag) {
+      packet(sda, { rev: true, label: 'NACK', fail: true, dur: 550 });
+      log('i2c', `${D.addr} ${D.name}  S·${D.addr}+W·NACK·P → no device answered · ADCS on gyro-only propagation`, 'bad');
+      return;
+    }
+    packet(sda, { rev: true, label: `${D.n} B`, dur: 650 });
+    const A = S.adcs, nz = s => (Math.random() - 0.5) * s;
+    let body;
+    if (dev === 'imu') body = `ax ${sg(nz(.04), 2)} ay ${sg(nz(.04), 2)} az ${sg(1 + nz(.02), 2)} g │ gx ${sg(A.rate.x)} gy ${sg(A.rate.y)} gz ${sg(A.rate.z)} °/s`;
+    else if (dev === 'mag') { const B = magField(); body = `Bx ${sg(B.x)} By ${sg(B.y)} Bz ${sg(B.z)} µT │ |B| ${Math.hypot(B.x, B.y, B.z).toFixed(1)} µT`; }
+    else { const raw = Math.round(S.temp / 0.0625); body = `${S.temp.toFixed(2)} °C (raw 0x${(raw << 4).toString(16).toUpperCase().padStart(4, '0')})`; }
+    log('i2c', `${D.addr} ${D.name}  S·W·[${D.reg}]·Sr·R·${D.n}B·P → ${body}`);
+  } });
+}
+function magField() {
+  const h = S.adcs.hdg * Math.PI / 180, nz = () => (Math.random() - 0.5) * 0.6;
+  return { x: 33.7 * Math.cos(h) + nz(), y: -33.7 * Math.sin(h) + nz(), z: -28.0 + nz() };
+}
+function nmea(body) { let c = 0; for (const ch of body) c ^= ch.charCodeAt(0); return '$' + body + '*' + c.toString(16).toUpperCase().padStart(2, '0'); }
+function gpsSentence() {
+  const d = new Date(), p2 = v => String(v).padStart(2, '0');
+  const hms = `${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}${p2(d.getUTCSeconds())}.00`;
+  const dmy = `${p2(d.getUTCDate())}${p2(d.getUTCMonth() + 1)}${String(d.getUTCFullYear()).slice(2)}`;
+  const j = () => (Math.random() * 0.002).toFixed(4).slice(1);
+  const lat = '2512.28' + j().slice(3), lon = '05516.24' + j().slice(3);
+  S.gpsN++;
+  const gga = S.gpsN % 2;
+  let s;
+  if (S.f.gps) s = gga ? nmea(`GPGGA,${hms},,,,,0,00,99.99,,,,,,`) : nmea(`GPRMC,${hms},V,,,,,,,${dmy},,,N`);
+  else s = gga ? nmea(`GPGGA,${hms},${lat},N,${lon},E,1,08,0.9,11.0,M,,M,,`) : nmea(`GPRMC,${hms},A,${lat},N,${lon},E,0.02,,${dmy},,,A`);
+  packet('uart_rx', { label: gga ? '$GPGGA' : '$GPRMC', dur: 1100 });
+  const st = S.cdhs.state;
+  log('uart', s + (st === 'run' ? (S.f.gps ? '  → no fix · CDHS propagating on internal clock' : '') : `  → unread (CDHS ${st.toUpperCase()})`), S.f.gps ? 'warn' : '');
+}
+function sdWrite() {
+  S.sd.n++; S.sd.lba++;
+  flash('spi_cs', 'act', 900); flash('spi_sck', 'clk', 900);
+  packet('spi_mosi', { label: 'CMD24', dur: 450, done: () => {
+    packet('spi_miso', { rev: false, label: '0x05', dur: 450 });
+    log('spi', `CS↓ CMD24 WRITE_BLOCK lba 0x${S.sd.lba.toString(16).toUpperCase()} · 512 B · telemetry frame #${S.sd.n} → token 0x05 (accepted) CS↑`);
+  } });
+}
+function wdtKick() {
+  S.wdt.el = 0;
+  packet('wdt_wdi', { label: 'WDI', dur: 500 });
+  log('wdt', `WDI toggle → MAX6369 timer cleared (timeout ${CFG.WDT_TIMEOUT_S} s)`, '', true);
+}
+function pwmLog() {
+  const A = S.adcs, parts = [];
+  for (const ax of ['x', 'y', 'z']) {
+    const d = A.duty[ax], X = ax.toUpperCase();
+    if (ax === 'x' && A.xOff) { parts.push('X DISABLED'); continue; }
+    parts.push(`${X} ${pct(d)} ${Math.round(A.rpm[ax])} rpm`);
+    if (Math.abs(d) > 0.02 && chOn('adcs')) packet(`pwm_${ax}${d > 0 ? 'A' : 'B'}`, { label: `${X} ${Math.round(Math.abs(d) * 100)}%`, dur: 1400 });
+  }
+  log('pwm', `${parts.join(' │ ')} · ${CFG.PWM_KHZ} kHz · IA=+ / IB=−`);
+}
+function payloadCycle() {
+  S.cam.state = 'arm';
+  packet('sync', { label: 'SYNC↑', dur: 900, done: () => {
+    if (!chOn('payload')) { S.cam.state = 'idle'; log('payload', 'SYNC sent · payload unpowered → no READY within 1 s · payload timeout flagged', 'bad'); return; }
+    S.cam.state = 'capture';
+    setTimeout(() => {
+      if (!chOn('payload')) { S.cam.state = 'idle'; log('payload', 'capture aborted — payload power lost · timeout flagged', 'bad'); return; }
+      S.cam.state = 'idle'; S.cam.frames++;
+      packet('ready', { label: 'READY', dur: 900, done: () => {
+        log('payload', `SYNC → capture → READY · frame #${S.cam.frames} · ${S.mode === 'flight' ? 'HYPER-A line sync (simulated)' : 'OV2640 RGB stand-in'} · queued to recorder`);
+      } });
+    }, 600);
+  } });
+}
+function epsLog() {
+  const p = S.pw, a = ch => { const s = chState(ch); return s === 'on' || s === 'dump' ? (p[ch] / CFG.RAIL_V).toFixed(2) + 'A' : s.toUpperCase(); };
+  log('eps', `SOLAR ${p.solar.toFixed(1)}W · LOAD ${p.load.toFixed(2)}W · NET ${sg(p.net, 2)}W · VBAT ${vbat().toFixed(2)}V · SoC ${(S.soc * 100).toFixed(1)}% │ BUS ${a('bus')} PAY ${a('payload')} TX ${a('tx')} ADCS ${a('adcs')}`);
+}
+function traffic(dt) {
+  const run = S.cdhs.state === 'run';
+  if (every('imu', 500, dt) && run) i2cRead('imu');
+  if (every('mag', 1000, dt) && run) i2cRead('mag');
+  if (every('tmp', 3000, dt) && run) i2cRead('tmp');
+  if (every('sd', 2000, dt) && run) sdWrite();
+  if (every('wdi', 1000, dt) && run) wdtKick();
+  if (every('pwm', 2000, dt) && run) pwmLog();
+  if (every('pay', 6000, dt) && run && chOn('payload') && S.cam.state === 'idle') payloadCycle();
+  if (every('eps', 2000, dt)) epsLog();
+  if (every('gps', 1000, dt) && chOn('bus')) gpsSentence();
+}
+
+/* ── subsystem ticks ── */
+const vbat = () => 6.0 + 2.4 * S.soc;
+function cdhsTick(dt) {
+  const C = S.cdhs;
+  if (!chOn('bus')) { if (C.state !== 'off') { C.state = 'off'; S.cam.state = 'idle'; log('sys', 'CDHS unpowered — BUS+CDHS channel is off', 'warn'); } S.wdt.el = 0; return; }
+  if (C.state === 'off') { C.state = 'boot'; C.t = 0; C.boots++; log('sys', `ESP32 power-on · boot #${C.boots}`, 'ok'); }
+  C.t += dt;
+  if (C.state === 'boot' && C.t >= 1.5) {
+    C.state = 'run'; C.t = 0; C.up = 0; S.wdt.el = 0;
+    log('sys', `CDHS up · I²C scan: ${S.f.mag ? '0x48 0x68 (0x0D missing)' : '0x0D 0x48 0x68'} · SD mounted · UART2 9600 8N1 · watchdog armed`, S.f.mag ? 'warn' : 'ok');
+  }
+  if (C.state === 'run') C.up += dt;
+  if (C.state === 'run' || C.state === 'hung') {
+    S.wdt.el += dt;
+    if (!S.f.bypass && S.wdt.el >= CFG.WDT_TIMEOUT_S) {
+      packet('wdt_rst', { label: 'RESET', dur: 500, fail: true });
+      log('sys', `MAX6369: no WDI for ${CFG.WDT_TIMEOUT_S} s → RESET pulse → ESP32 EN low → reboot`, 'bad');
+      C.state = 'boot'; C.t = 0; C.boots++; S.wdt.el = 0;
+      S.adcs.duty = { x: 0, y: 0, z: 0 };
+    }
+  }
+}
+function adcsTick(dt) {
+  const A = S.adcs, st = S.cdhs.state, pow = chOn('adcs');
+  const stalling = S.f.stall && !A.xOff && pow && st !== 'off' && st !== 'boot';
+  for (const ax of ['x', 'y', 'z']) {
+    A.rate[ax] += (Math.random() - 0.5) * 3.2 * dt - A.rate[ax] * 0.1 * dt;
+    if (st === 'run') A.duty[ax] = (ax === 'x' && A.xOff) ? 0 : clamp(-0.4 * A.rate[ax], -1, 1);
+    else if (st !== 'hung') A.duty[ax] = 0;
+    const eff = pow ? A.duty[ax] : 0;
+    let target = eff * CFG.WHEEL_MAX_RPM;
+    if (ax === 'x' && stalling) { target = 0; A.rpm.x *= 0.5; }
+    A.rpm[ax] += (target - A.rpm[ax]) * Math.min(1, dt * 2.5);
+    if (!(ax === 'x' && stalling)) A.rate[ax] += eff * 0.8 * dt;
+    A.rate[ax] = clamp(A.rate[ax], -30, 30);
+  }
+  A.hdg = (A.hdg + A.rate.z * dt + 360) % 360;
+  if (stalling) {
+    A.stallT += dt;
+    const share = base('adcs') / 3;
+    A.stallExtra = (CFG.STALL_W[S.mode] - share) * clamp(A.stallT / 0.8, 0, 1);
+    if (st === 'run' && A.stallT >= 0.4) {
+      A.xOff = true; A.stallExtra = 0;
+      log('sys', `X wheel stall detected: commanded ${pct(A.duty.x)}, 0 rpm, no gyro response, current rising → CDHS disables X PWM before the ADCS eFuse trips`, 'bad');
+    }
+  } else A.stallExtra = 0;
+  S.temp += (24.6 - S.temp) * 0.01 + (Math.random() - 0.5) * 0.03;
+}
+function eclipseTick(dt) {
+  if (!S.ecl.active) return;
+  S.ecl.t += dt * CFG.SIM_SPEED;
+  if (!S.ecl.dump && S.ecl.t >= CFG.TX_DUMP_MIN * 60) { S.ecl.dump = true; log('sys', `Polar dump complete (${CFG.TX_DUMP_MIN} min) · TX channel off`, 'ok'); }
+  if (S.ecl.t >= CFG.ECLIPSE_MIN * 60) endEclipse(true);
+}
+function powerTick(dt) {
+  if (S.f.short && chState('payload') !== 'trip' && ['on'].includes(chState('payload'))) tripCh('payload', 3 * limit('payload'));
+  const p = {};
+  for (const ch of CHS) {
+    p[ch] = chW(ch);
+    if (p[ch] / CFG.RAIL_V > limit(ch)) { tripCh(ch, p[ch] / CFG.RAIL_V); p[ch] = 0; }
+  }
+  const load = CHS.reduce((s, c) => s + p[c], 0);
+  const solar = S.sunlit ? CFG.SOLAR_W[S.mode] : 0;
+  let net = solar - load;
+  if (S.soc >= 1 && net > 0) net = 0;
+  S.soc = clamp(S.soc + net * dt * CFG.SIM_SPEED / 3600 / battWh(), 0, 1);
+  S.pw = { ...p, load, solar: S.soc >= 1 ? Math.min(solar, load) : solar, net };
+  if (!S.safe && S.soc < 1 - CFG.DOD_FLOOR) { S.safe = true; log('sys', `SoC ${(S.soc * 100).toFixed(1)} % below the 30 % DoD floor → SAFE MODE · payload and TX shed`, 'bad'); }
+  if (S.safe && S.soc > 0.75) { S.safe = false; log('sys', `SoC ${(S.soc * 100).toFixed(1)} % → SAFE MODE exit · payload and TX re-enabled`, 'ok'); }
+}
+function tripCh(ch, a) {
+  if (S.ef[ch].trip) return;
+  S.ef[ch].trip = true;
+  log('sys', `eFuse ${CFG.CH[ch].name} TRIPPED at ${a.toFixed(2)} A (limit ${limit(ch).toFixed(2)} A) — other channels unaffected`, 'bad');
+  if (SEL.type === 'node') renderInspector();
+}
+
+/* ── actions ── */
+function startEclipse() {
+  S.ecl = { active: true, t: 0, soc0: S.soc, dump: false }; S.sunlit = false;
+  log('sys', `Eclipse entry · solar 0 W · payload inhibited · TX polar dump to Troll / Inuvik for ${CFG.TX_DUMP_MIN} min`, 'warn');
+}
+function endEclipse(natural) {
+  S.sunlit = true; S.ecl.active = false;
+  const d = (S.ecl.soc0 - S.soc) * 100, m = Math.round(S.ecl.t / 60);
+  log('sys', `${natural ? 'Eclipse exit' : 'Eclipse ended early'} after ${m} min · DoD this eclipse ${d.toFixed(1)} % (floor 30 %)`, 'ok');
+}
+function setFault(k, v) {
+  S.f[k] = v;
+  const msg = {
+    short: v ? 'PAYLOAD SHORT injected on the payload channel' : 'Short removed · eFuse reset · PAYLOAD channel re-enabled',
+    stall: v ? 'X WHEEL STALL injected — rotor mechanically jammed' : 'Stall cleared · X wheel re-enabled',
+    mag: v ? 'MAG DROPOUT injected — QMC5883L off the I²C bus' : 'Magnetometer back on the I²C bus',
+    gps: v ? 'GPS NO FIX injected — antenna disconnected' : 'GPS fix restored',
+    bypass: v ? 'Watchdog BYPASSED (WDI jumper) — now try CDHS HANG' : 'Watchdog restored'
+  }[k];
+  log('sys', msg, v ? 'warn' : 'ok');
+  if (k === 'short' && !v) S.ef.payload.trip = false;
+  if (k === 'stall' && !v) { S.adcs.xOff = false; S.adcs.stallT = 0; S.adcs.stallExtra = 0; }
+}
+function injectHang() {
+  if (S.cdhs.state !== 'run') { log('sys', `Cannot hang CDHS — it is ${S.cdhs.state.toUpperCase()}`, 'warn'); return; }
+  S.cdhs.state = 'hung';
+  log('sys', S.f.bypass ? 'CDHS HANG — main loop stuck · watchdog bypassed: nothing will recover this' : 'CDHS HANG — main loop stuck · WDI kicks stop · wheel PWM frozen at last duty', 'bad');
+}
+function resetAll() {
+  Object.keys(S.f).forEach(k => S.f[k] = false);
+  S.ef = { bus: { on: true, trip: false }, payload: { on: true, trip: false }, tx: { on: false, trip: false }, adcs: { on: true, trip: false } };
+  S.mainSw = true; S.sunlit = true; S.ecl.active = false; S.soc = 1; S.safe = false;
+  S.adcs.xOff = false; S.adcs.stallT = 0; S.adcs.stallExtra = 0;
+  if (S.cdhs.state === 'hung') { S.cdhs.state = 'boot'; S.cdhs.t = 0; S.cdhs.boots++; }
+  log('sys', 'RESET ALL · nominal configuration · battery full', 'ok');
+}
+const ACT = {
+  eclipse: () => S.ecl.active ? endEclipse(false) : startEclipse(),
+  drain: () => { S.soc = 0.69; log('sys', 'Battery drained to 69 % SoC (31 % DoD)', 'warn'); },
+  short: () => setFault('short', !S.f.short),
+  stall: () => setFault('stall', !S.f.stall),
+  hang: injectHang,
+  mag: () => setFault('mag', !S.f.mag),
+  gps: () => setFault('gps', !S.f.gps),
+  bypass: () => setFault('bypass', !S.f.bypass),
+  mainsw: () => { S.mainSw = !S.mainSw; log('sys', S.mainSw ? 'Main switch CLOSED · 5 V rail up' : 'Main switch OPEN · all loads de-energised (charger still connected to battery)', S.mainSw ? 'ok' : 'warn'); },
+  reset: resetAll
+};
+function doAct(a) {
+  if (a.startsWith('ef:')) { const ch = a.slice(3); S.ef[ch].on = !S.ef[ch].on; log('sys', `eFuse ${CFG.CH[ch].name} switched ${S.ef[ch].on ? 'ON' : 'OFF'} by command`, 'ok'); }
+  else if (a.startsWith('rst:')) { const ch = a.slice(4); S.ef[ch].trip = false; log('sys', `eFuse ${CFG.CH[ch].name} trip reset by command`, 'ok'); }
+  else ACT[a] && ACT[a]();
+  renderInspector(); render();
+}
+
+/* ── inspector ── */
+let SEL = { type: 'none' };
+function select(s, quiet) {
+  SEL = s;
+  NODES.forEach(n => n.g.classList.toggle('sel', s.type === 'node' && s.id === n.id));
+  pinFocus = s.type === 'bus' ? () => hoverBus(s.bus) : null;
+  clearFocus();
+  renderInspector();
+  if (isSheet()) openSheet(s.type !== 'none');
+  else if (!quiet && s.type !== 'none' && innerWidth <= 1100) $('#inspector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+const val = v => typeof v === 'function' ? v() : v;
+function infoFor(id) {
+  const n = NODEMAP[id];
+  if (n.ch) {
+    const ch = n.ch, fl = CFG.CH[ch].flightW, de = CFG.CH[ch].demoW;
+    const ctl = [[`ef:${ch}`, () => S.ef[ch].on ? 'SWITCH CHANNEL OFF' : 'SWITCH CHANNEL ON']];
+    if (S.ef[ch].trip) ctl.push([`rst:${ch}`, () => 'RESET TRIP', 'r']);
+    return { part: 'eFuse — per-load switch with adjustable current limit (e.g. TI TPS2595 class)', role: EF_ROLE[ch],
+      flight: `${fl} W → ${(fl / 5).toFixed(2)} A at 5 V · limit ${CFG.CH[ch].limitA.flight} A`,
+      demo: `${de} W → ${(de / 5).toFixed(2)} A at 5 V · limit ${CFG.CH[ch].limitA.demo} A`,
+      why: 'Poster: “per-load switch and current limit”. A fault on one load trips only its own channel — the rest of the spacecraft keeps running — and CDHS can power-cycle a misbehaving load by command.',
+      fail: 'A short on this channel trips the eFuse instead of collapsing the whole 5 V rail.',
+      q: 'What happens if the payload shorts?', a: 'Try FAULT → PAYLOAD SHORT. Only the payload channel trips; CDHS, ADCS and TX stay up.', ctl };
+  }
+  if (id.startsWith('drv_')) return INFO.drv;
+  if (id.startsWith('rw_')) return INFO.rw;
+  return INFO[id];
+}
+function renderInspector() {
+  const box = $('#insBody');
+  $('#sheetName').textContent = SEL.type === 'node' ? NODEMAP[SEL.id].t + (NODEMAP[SEL.id].ch ? ' · ' + NODEMAP[SEL.id].s : '') : SEL.type === 'bus' ? BUSINFO[SEL.bus].name : 'tap a block';
+  if (SEL.type === 'node') {
+    const n = NODEMAP[SEL.id], I = infoFor(SEL.id);
+    const ctl = (I.ctl || []).map(([a, lbl, c]) => `<button data-act="${a}" class="${c || ''}">${val(lbl)}</button>`).join('');
+    let pins = '';
+    if (SEL.id === 'esp32') {
+      const rows = [['I²C SDA / SCL', `${P.SDA} / ${P.SCL}`], ['SPI MOSI / MISO', `${P.SD_MOSI} / ${P.SD_MISO}`], ['SPI SCK / CS', `${P.SD_SCK} / ${P.SD_CS}`],
+        ['UART2 TX / RX', `${P.GPS_TX} / ${P.GPS_RX}`], ['WDI / reset in', `${P.WDI} / ${P.WDT_RST}`], ['SYNC out / READY in', `${P.SYNC} / ${P.READY}`],
+        ['Wheel X IA / IB', `${P.WX_A} / ${P.WX_B}`], ['Wheel Y IA / IB', `${P.WY_A} / ${P.WY_B}`], ['Wheel Z IA / IB', `${P.WZ_A} / ${P.WZ_B}`]];
+      pins = `<dt>PIN MAP ${CFG.PIN_MAP_CONFIRMED ? '' : '<span class="draft">· DRAFT</span>'}</dt><dd><table class="pins">${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table></dd>`;
+    }
+    box.innerHTML = `
+      <div class="ins-h"><span class="chip" style="--c:${SYSC[n.sys]}">${n.sys}</span><h3>${n.t}${n.ch ? ' · ' + n.s : ''}</h3></div>
+      <div class="part">${val(I.part)}</div>
+      <div class="live" id="insLive"></div>
+      ${ctl ? `<div class="ctl">${ctl}</div>` : ''}
+      <dl>
+        <dt>ROLE</dt><dd>${val(I.role)}</dd>
+        <dt>ELECTRICAL</dt><dd>
+          <div class="el ${S.mode === 'flight' ? 'on' : ''}"><b>FLIGHT</b>${val(I.flight)}</div>
+          <div class="el ${S.mode === 'demo' ? 'on' : ''}"><b>DEMO</b>${val(I.demo)}</div></dd>
+        <dt>WHY THIS PART</dt><dd>${val(I.why)}</dd>
+        <dt>IF IT FAILS</dt><dd>${val(I.fail)}</dd>
+        ${pins}
+      </dl>
+      <div class="qa"><b>Q · ${val(I.q)}</b><p>${val(I.a)}</p></div>`;
+  } else if (SEL.type === 'bus') {
+    const B = BUSINFO[SEL.bus], w = WIREMAP[SEL.wire];
+    const on = [...new Set(WIRES.filter(x => x.bus === SEL.bus).flatMap(ends))].map(id => NODEMAP[id] ? NODEMAP[id].t + (NODEMAP[id].ch ? ' ' + NODEMAP[id].s : '') : id);
+    box.innerHTML = `
+      <div class="ins-h"><span class="chip" style="--c:var(--c-${SEL.bus})">BUS</span><h3>${B.name}</h3></div>
+      <div class="part">${B.spec}</div>
+      <div class="live"><span>SELECTED</span><span>${w ? w.lbl : '—'}</span></div>
+      <dl><dt>HOW IT WORKS</dt><dd>${B.body}</dd>
+      ${B.items ? `<dt>ON THIS BUS</dt><dd><ul class="tight">${B.items.map(i => `<li>${i}</li>`).join('')}</ul></dd>` : `<dt>CONNECTS</dt><dd>${on.join(' · ')}</dd>`}
+      </dl>
+      <div class="ctl" style="margin-top:12px"><button data-tab="${SEL.bus === 'sync' || SEL.bus === 'ready' ? 'payload' : SEL.bus === 'power' ? 'eps' : SEL.bus}">SHOW IN BUS MONITOR</button></div>`;
+  } else {
+    const e = eclipsePrediction();
+    box.innerHTML = `
+      <div class="ins-h"><span class="chip">AL-FALAJ SAT-1</span><h3>OVERVIEW</h3></div>
+      <div class="part">2U hyperspectral CubeSat · algal-bloom early warning · classroom demonstrator of its EPS, CDHS, ADCS and payload interface.</div>
+      <dl>
+        <dt>HOW TO USE</dt><dd><ul class="tight">
+          <li>Click any block for its part, role, and what happens if it fails.</li>
+          <li>Hover a wire to trace its whole bus; click it for protocol details.</li>
+          <li>Moving dots are real message types: I²C reads, NMEA sentences, SD writes, sync/ready, watchdog kicks.</li>
+          <li>FLIGHT BUDGET / DEMO KIT swaps poster numbers for kit draws.</li>
+          <li>Fault injection: break something and watch the system respond.</li></ul></dd>
+        <dt>KEY NUMBERS (${S.mode === 'flight' ? 'FLIGHT' : 'DEMO'})</dt><dd><ul class="tight">
+          <li>Array ${CFG.SOLAR_W[S.mode]} W · battery ${battWh()} Wh</li>
+          <li>Sunlit imaging: bus + payload = ${(base('bus') + base('adcs') + base('payload')).toFixed(1)} W</li>
+          <li>Sunlit downlink: bus + TX = ${(base('bus') + base('adcs') + base('tx')).toFixed(1)} W</li>
+          <li>Eclipse: ${e.busW.toFixed(2)} W × ${CFG.ECLIPSE_MIN} min + ${e.txW.toFixed(2)} W × ${CFG.TX_DUMP_MIN} min = ${e.wh.toFixed(2)} Wh → ${(e.dod * 100).toFixed(1)} % DoD (floor 30 %)</li></ul></dd>
+        <dt>WHAT THIS KIT IS</dt><dd>A poster-aligned demonstrator. The ESP32-CAM simulates, but does not replace, the 96-band HYPER-A payload.</dd>
+      </dl>`;
+  }
+  renderInsLive();
+}
+function liveRows(id) {
+  const n = NODEMAP[id], A = S.adcs, p = S.pw;
+  if (n.ch) {
+    const s = chState(n.ch), a = p[n.ch] / CFG.RAIL_V;
+    return [['STATE', s.toUpperCase(), s === 'trip' ? 'bad' : (s === 'shed' || s === 'inhibit') ? 'warn' : ''], ['CURRENT', `${a.toFixed(2)} A`], ['LIMIT', `${limit(n.ch).toFixed(2)} A`], ['POWER', `${p[n.ch].toFixed(2)} W`]];
+  }
+  switch (id) {
+    case 'solar': return [['ILLUMINATION', S.sunlit ? 'SUNLIT' : 'ECLIPSE', S.sunlit ? '' : 'warn'], ['OUTPUT', `${p.solar.toFixed(1)} W`], ['PEAK', `${CFG.SOLAR_W[S.mode]} W`]];
+    case 'mppt': return [['MODE', !S.sunlit ? 'NO PV' : S.soc >= 1 ? 'FULL · CV' : 'CHARGING'], ['NET INTO PACK', `${sg(p.net, 2)} W`]];
+    case 'batt': { const e = eclipsePrediction(); return [['SoC', `${(S.soc * 100).toFixed(1)} %`, S.safe ? 'bad' : ''], ['V (≈)', `${vbat().toFixed(2)} V`], ['NET', `${sg(p.net, 2)} W`], ['ECLIPSE DoD', `${(e.dod * 100).toFixed(1)} % of 30 %`], ['EQUATION', `${e.busW.toFixed(2)}W×${CFG.ECLIPSE_MIN}m + ${e.txW.toFixed(2)}W×${CFG.TX_DUMP_MIN}m = ${e.wh.toFixed(2)} Wh`]]; }
+    case 'sw': return [['CONTACT', S.mainSw ? 'CLOSED' : 'OPEN', S.mainSw ? '' : 'warn'], ['CURRENT', `${(p.load / vbat()).toFixed(2)} A`]];
+    case 'buck': return [['OUTPUT', rail5() ? '5.00 V' : 'OFF', rail5() ? '' : 'warn'], ['CURRENT', `${(p.load / 5).toFixed(2)} A`], ['POWER', `${p.load.toFixed(2)} W`]];
+    case 'reg33': return [['OUTPUT', chOn('bus') ? '3.30 V' : 'OFF', chOn('bus') ? '' : 'warn']];
+    case 'tx': { const s = chState('tx'); return [['STATE', s === 'dump' ? 'POLAR DUMP' : s.toUpperCase(), s === 'trip' ? 'bad' : ''], ['POWER', `${p.tx.toFixed(2)} W`]]; }
+    case 'esp32': return [['STATE', S.cdhs.state.toUpperCase(), S.cdhs.state === 'hung' ? 'bad' : S.cdhs.state === 'run' ? '' : 'warn'], ['UPTIME', `${S.cdhs.up.toFixed(1)} s`], ['BOOTS', S.cdhs.boots], ['WDT TIMER', `${S.wdt.el.toFixed(1)} / ${CFG.WDT_TIMEOUT_S} s`, S.cdhs.state === 'hung' ? 'bad' : '']];
+    case 'sd': return [['FRAMES', S.sd.n], ['LAST LBA', '0x' + S.sd.lba.toString(16).toUpperCase()]];
+    case 'wdt': return [['TIMER', S.f.bypass ? 'BYPASSED' : `${S.wdt.el.toFixed(1)} / ${CFG.WDT_TIMEOUT_S} s`, S.f.bypass ? 'warn' : S.cdhs.state === 'hung' ? 'bad' : ''], ['CDHS', S.cdhs.state.toUpperCase()]];
+    case 'imu': return [['gx', `${sg(A.rate.x)} °/s`], ['gy', `${sg(A.rate.y)} °/s`], ['gz', `${sg(A.rate.z)} °/s`], ['az', '+1.00 g (bench)']];
+    case 'mag': { const B = magField(); return S.f.mag ? [['STATUS', 'NACK @0x0D', 'bad']] : [['Bx', `${sg(B.x)} µT`], ['By', `${sg(B.y)} µT`], ['Bz', `${sg(B.z)} µT`], ['HEADING', `${A.hdg.toFixed(0)}°`]]; }
+    case 'tmp': return [['TEMP', `${S.temp.toFixed(2)} °C`]];
+    case 'gps': return [['FIX', S.f.gps ? 'NONE (0)' : 'GPS (1) · 8 sats', S.f.gps ? 'warn' : ''], ['SENTENCES', S.gpsN]];
+    case 'cam': { const s = chState('payload'); return [['POWER', s.toUpperCase(), s === 'trip' ? 'bad' : s === 'on' ? '' : 'warn'], ['STATE', S.cam.state.toUpperCase()], ['FRAMES', S.cam.frames], ['DRAW', `${p.payload.toFixed(2)} W`]]; }
+  }
+  if (id.startsWith('drv_') || id.startsWith('rw_')) {
+    const ax = n.ax, off = ax === 'x' && A.xOff;
+    return [['DUTY', off ? 'DISABLED' : pct(A.duty[ax]), off ? 'bad' : ''], ['DIRECTION', A.duty[ax] > 0.02 ? 'IA (+)' : A.duty[ax] < -0.02 ? 'IB (−)' : 'IDLE'], ['WHEEL', `${Math.round(A.rpm[ax])} rpm`], ['BODY RATE', `${sg(A.rate[ax])} °/s`]];
+  }
+  return [];
+}
+function renderInsLive() {
+  const el = $('#insLive'); if (!el || SEL.type !== 'node') return;
+  el.innerHTML = liveRows(SEL.id).map(([k, v, c]) => `<span>${k}</span><span class="${c || ''}">${v}</span>`).join('');
+}
+
+/* ── render (every tick) ── */
+function setText(el, t, cls) { if (el.textContent !== t) el.textContent = t; if (cls !== undefined) el.setAttribute('class', cls); }
+function render() {
+  const p = S.pw, e = eclipsePrediction();
+  setText($('#tSolar'), `${p.solar.toFixed(1)} W`);
+  setText($('#tLoad'), `${p.load.toFixed(2)} W`);
+  setText($('#tNet'), `${sg(p.net, 2)} W`, 'v ' + (p.net < -0.01 ? 'warn' : 'ok'));
+  setText($('#tV'), `${vbat().toFixed(2)} V`);
+  setText($('#tSoc'), `${(S.soc * 100).toFixed(1)} %`, 'v ' + (S.safe ? 'bad' : ''));
+  $('#socBar').style.width = (S.soc * 100) + '%';
+  $('#socBar').style.background = S.safe ? 'var(--red)' : 'var(--cyan)';
+  setText($('#tDod'), `${(e.dod * 100).toFixed(1)} %`, 'v ' + (e.dod > CFG.DOD_FLOOR ? 'bad' : 'ok'));
+  $('#dodBar').style.width = clamp(e.dod / CFG.DOD_FLOOR * 100, 0, 100) + '%';
+  const anyFault = CHS.some(c => S.ef[c].trip) || S.f.stall || S.f.mag || S.f.gps || S.f.short || S.cdhs.state === 'hung';
+  const state = !S.mainSw ? ['OFF', 'warn'] : S.safe ? ['SAFE', 'bad'] : anyFault ? ['FAULT', 'bad'] : S.ecl.active ? ['ECLIPSE', 'warn'] : ['NOMINAL', 'ok'];
+  setText($('#tState'), state[0], 'v ' + state[1]);
+  const cs = S.cdhs.state;
+  setText($('#tCdhs'), cs.toUpperCase(), 'v ' + (cs === 'run' ? 'ok' : cs === 'hung' ? 'bad' : 'warn'));
+  setText($('#tWdt'), S.f.bypass ? 'BYPASSED' : cs === 'run' || cs === 'hung' ? `${S.wdt.el.toFixed(1)}/${CFG.WDT_TIMEOUT_S}s` : 'IDLE', 'v ' + (S.f.bypass ? 'warn' : cs === 'hung' ? 'bad' : 'ok'));
+
+  // wires
+  const mainOn = rail5();
+  for (const w of WIRES) {
+    const c = w.el.classList;
+    if (w.bus === 'power') {
+      let on = false, trip = false, amps = p.load / 5;
+      if (w.feed === 'pv') { on = S.sunlit; amps = p.solar / 8; }
+      else if (w.feed === 'chg') { on = S.sunlit && S.soc < 0.999; amps = Math.max(0, p.net) / 8; }
+      else if (w.feed === 'main') on = mainOn && p.load > 0.01;
+      else if (w.feed.startsWith('ch:')) { const ch = w.feed.slice(3); on = chOn(ch); trip = S.ef[ch].trip; amps = p[ch] / 5; }
+      c.toggle('on', on && !trip); c.toggle('off', !on && !trip); c.toggle('trip', trip);
+      if (on) w.el.style.animationDuration = clamp(1.4 - amps * 0.35, 0.25, 1.4).toFixed(2) + 's';
+    } else if (w.bus === 'pwm') {
+      if (w.feed) {
+        const ax = w.feed.slice(4), rpm = Math.abs(S.adcs.rpm[ax]);
+        const st = ax === 'x' && S.f.stall && !S.adcs.xOff && chOn('adcs') && (cs === 'run' || cs === 'hung');
+        c.toggle('run', rpm > 80 && !st); c.toggle('trip', st);
+        if (rpm > 80) w.el.style.animationDuration = clamp(1.2 - rpm / CFG.WHEEL_MAX_RPM, 0.2, 1.2).toFixed(2) + 's';
+      } else {
+        const d = S.adcs.duty[w.ax];
+        const on = chOn('adcs') && (cs === 'run' || cs === 'hung') && (w.side === 'A' ? d > 0.02 : d < -0.02);
+        c.toggle('run', on);
+        if (on) w.el.style.animationDuration = clamp(0.9 - Math.abs(d) * 0.7, 0.18, 0.9).toFixed(2) + 's';
+      }
+    }
+  }
+
+  // nodes
+  for (const n of NODES) {
+    const [txt, led] = nodeStatus(n);
+    setText(n.live, txt[0], 'nl ' + (txt[1] || ''));
+    n.led.setAttribute('class', 'led ' + led);
+    n.g.classList.toggle('fault', led === 'bad');
+  }
+  const esp = NODEMAP.esp32;
+  setText(esp.big, cs.toUpperCase(), 'big ' + (cs === 'run' ? '' : cs === 'hung' ? 'bad' : cs === 'off' ? 'off' : 'warn'));
+  setText(esp.l1, `uptime ${S.cdhs.up.toFixed(1)} s`);
+  setText(esp.l2, `boots ${S.cdhs.boots}`);
+  setText(esp.l3, S.f.bypass ? 'watchdog BYPASSED' : `WDT ${S.wdt.el.toFixed(1)} / ${CFG.WDT_TIMEOUT_S} s`);
+  setText(esp.draft, CFG.PIN_MAP_CONFIRMED ? '' : 'pin map: draft');
+  setText(NODEMAP.cam.frames, `frames ${S.cam.frames}`);
+  NODEMAP.cam.lens.setAttribute('class', 'lens' + (S.cam.state === 'capture' ? ' cap' : ''));
+  NODEMAP.rw_x.rotor.setAttribute('class', 'rotor' + ((S.f.stall && !S.adcs.xOff) || S.adcs.xOff ? ' stall' : ''));
+
+  // fault buttons
+  document.querySelectorAll('.fb').forEach(b => {
+    const a = b.dataset.act;
+    const on = a === 'eclipse' ? S.ecl.active : a === 'mainsw' ? !S.mainSw : a === 'hang' ? cs === 'hung' : S.f[a];
+    b.classList.toggle('on', !!on);
+  });
+  setText($('#eclTxt'), S.ecl.active ? `${Math.floor(S.ecl.t / 60)} / ${CFG.ECLIPSE_MIN} min · DoD ${((S.ecl.soc0 - S.soc) * 100).toFixed(1)} %` : `${CFG.ECLIPSE_MIN} min at ×${CFG.SIM_SPEED} · battery only`);
+  setText($('#swTxt'), S.mainSw ? 'closed' : 'OPEN — all loads off');
+  renderInsLive();
+}
+function nodeStatus(n) {
+  const cs = S.cdhs.state, bus = chOn('bus'), A = S.adcs;
+  if (n.ch) {
+    const s = chState(n.ch), a = S.pw[n.ch] / CFG.RAIL_V;
+    if (s === 'trip') return [['TRIPPED', 'bad'], 'bad'];
+    if (s === 'on' || s === 'dump') return [[`${a.toFixed(2)}/${limit(n.ch).toFixed(1)} A`], 'ok'];
+    if (s === 'shed' || s === 'inhibit') return [[s.toUpperCase(), 'warn'], 'warn'];
+    return [['OFF', 'off'], ''];
+  }
+  const off = [['OFF', 'off'], ''];
+  switch (n.id) {
+    case 'solar': return S.sunlit ? [[`${S.pw.solar.toFixed(1)} W`], 'ok'] : [['ECLIPSE', 'warn'], 'warn'];
+    case 'mppt': return !S.sunlit ? [['NO PV', 'off'], ''] : S.soc >= 1 ? [['FULL · CV'], 'ok'] : [['CHARGING'], 'ok'];
+    case 'batt': return [[`${vbat().toFixed(2)} V · ${(S.soc * 100).toFixed(0)}%`, S.safe ? 'bad' : ''], S.safe ? 'bad' : 'ok'];
+    case 'sw': return S.mainSw ? [['CLOSED'], 'ok'] : [['OPEN', 'warn'], 'warn'];
+    case 'buck': return rail5() ? [[`${(S.pw.load / 5).toFixed(2)} A`], 'ok'] : off;
+    case 'reg33': return bus ? [['3.30 V'], 'ok'] : off;
+    case 'tx': { const s = chState('tx'); return s === 'dump' ? [['POLAR DUMP', 'warn'], 'warn'] : s === 'on' ? [[`${S.pw.tx.toFixed(1)} W`], 'ok'] : s === 'trip' ? [['TRIPPED', 'bad'], 'bad'] : [[s === 'shed' ? 'SHED' : 'OFF', s === 'shed' ? 'warn' : 'off'], s === 'shed' ? 'warn' : '']; }
+    case 'esp32': return [[cs === 'run' ? 'loop OK' : cs.toUpperCase(), cs === 'hung' ? 'bad' : cs === 'run' ? '' : 'warn'], cs === 'run' ? 'ok' : cs === 'hung' ? 'bad' : cs === 'off' ? '' : 'warn'];
+    case 'sd': return bus ? [[`frames ${S.sd.n}`], 'ok'] : off;
+    case 'wdt': return !bus ? off : S.f.bypass ? [['BYPASSED', 'warn'], 'warn'] : [[`${S.wdt.el.toFixed(1)}/${CFG.WDT_TIMEOUT_S} s`, cs === 'hung' ? 'bad' : ''], cs === 'hung' ? 'bad' : 'ok'];
+    case 'imu': return bus ? [[`gz ${sg(A.rate.z)}°/s`], 'ok'] : off;
+    case 'mag': return !bus ? off : S.f.mag ? [['NACK', 'bad'], 'bad'] : [[`hdg ${A.hdg.toFixed(0)}°`], 'ok'];
+    case 'tmp': return bus ? [[`${S.temp.toFixed(1)} °C`], 'ok'] : off;
+    case 'gps': return !bus ? off : S.f.gps ? [['NO FIX', 'warn'], 'warn'] : [['FIX · 8 sats'], 'ok'];
+    case 'cam': { const s = chState('payload'); if (s === 'trip') return [['TRIPPED', 'bad'], 'bad']; if (s === 'inhibit' || s === 'shed') return [[s.toUpperCase(), 'warn'], 'warn']; if (s !== 'on') return off; return [[S.cam.state === 'capture' ? 'CAPTURE' : S.cam.state === 'arm' ? 'ARMED' : 'IDLE', S.cam.state === 'capture' ? 'warn' : ''], 'ok']; }
+  }
+  if (n.id.startsWith('drv_') || n.id.startsWith('rw_')) {
+    const ax = n.ax;
+    if (!chOn('adcs')) return off;
+    if (ax === 'x' && S.f.stall && !A.xOff) return [['STALL', 'bad'], 'bad'];
+    if (ax === 'x' && A.xOff) return [['DISABLED', 'bad'], 'bad'];
+    return n.id.startsWith('drv_') ? [[`duty ${pct(A.duty[ax])}`], 'ok'] : [[`${Math.round(A.rpm[ax])} rpm`], 'ok'];
+  }
+  return [['']];
+}
+
+/* ── loop ── */
+let last = performance.now();
+function tick() {
+  const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now;
+  eclipseTick(dt); cdhsTick(dt); adcsTick(dt); powerTick(dt); traffic(dt); render();
+}
+
+/* ── wiring up UI ── */
+function initUI() {
+  const lg = $('#legend');
+  for (const [k, n] of BUSES) {
+    const b = document.createElement('button');
+    b.style.setProperty('--c', `var(--c-${k})`);
+    b.innerHTML = `<i></i>${n}`; b.title = 'Click to show / hide · hover to trace';
+    b.addEventListener('click', () => { svg.classList.toggle('hide-' + k); b.classList.toggle('off'); });
+    b.addEventListener('mouseenter', () => hoverBus(k));
+    b.addEventListener('mouseleave', clearFocus);
+    lg.appendChild(b);
+  }
+  const note = document.createElement('span'); note.className = 'note'; note.textContent = 'dashes = current · dots = messages';
+  lg.appendChild(note);
+
+  $('#faults').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) doAct(b.dataset.act); });
+  $('#insBody').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (b) { doAct(b.dataset.act); return; }
+    const t = e.target.closest('[data-tab]'); if (t) { setTab(t.dataset.tab); $('#log').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  });
+  $('#insClear').addEventListener('click', e => { e.stopPropagation(); select({ type: 'none' }); if (isSheet()) openSheet(true); });
+  $('#insHead').addEventListener('click', () => { if (isSheet()) openSheet(!$('#inspector').classList.contains('open')); });
+  $('#zIn').addEventListener('click', () => applyZoom(Math.min(2600, svg.clientWidth * 1.3)));
+  $('#zOut').addEventListener('click', () => applyZoom(svg.clientWidth / 1.3));
+  $('#zFit').addEventListener('click', () => applyZoom(null));
+  if (NOHOVER) $('#schHint').textContent = 'tap a block or wire · drag to pan';
+  document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => {
+    S.mode = b.dataset.mode;
+    document.querySelectorAll('.modes button').forEach(x => x.classList.toggle('on', x === b));
+    log('sys', S.mode === 'flight' ? 'Showing FLIGHT BUDGET (poster numbers)' : 'Showing DEMO KIT draws (typical — measure and edit CONFIG)', 'ok');
+    renderInspector();
+  }));
+  document.querySelectorAll('.subs button').forEach(b => b.addEventListener('click', () => {
+    const on = subFocus !== b.dataset.sys;
+    subFocus = on ? b.dataset.sys : null;
+    document.querySelectorAll('.subs button').forEach(x => x.classList.toggle('on', on && x === b));
+    clearFocus();
+  }));
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b) setTab(b.dataset.f); });
+  $('#pause').addEventListener('click', e => { logPaused = !logPaused; e.target.classList.toggle('on', logPaused); e.target.textContent = logPaused ? 'RESUME' : 'PAUSE'; if (!logPaused) rebuildLog(); });
+  $('#clear').addEventListener('click', () => { LOG.length = 0; rebuildLog(); });
+  svg.addEventListener('click', e => { if (e.target === svg || e.target.tagName === 'rect' && e.target.getAttribute('fill') === 'url(#grid)') select({ type: 'none' }); });
+}
+function setTab(f) {
+  logFilter = f;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x.dataset.f === f));
+  rebuildLog();
+}
+
+/* ── zoom ── */
+function applyZoom(w, keep = true) {
+  const cx = (wrap.scrollLeft + wrap.clientWidth / 2) / svg.clientWidth;
+  const zw = w && w > wrap.clientWidth + 4 ? Math.round(w) : null;
+  svg.style.width = zw ? zw + 'px' : '100%';
+  $('#zFit').classList.toggle('on', !zw);
+  if (keep) wrap.scrollLeft = cx * svg.clientWidth - wrap.clientWidth / 2;
+}
+
+/* ── guided tour ── */
+const TOUR_KEY = 'af1-tour-v1';
+const SMOOTH = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+const nodeEls = (...ids) => () => ids.map(id => NODEMAP[id].g);
+const sel1 = q => () => [document.querySelector(q)];
+const tap = (a, b) => NOHOVER ? a : b;
+const TOUR = [
+  { t: 'AL-FALAJ SAT-1 · TINKER CIRCUIT',
+    b: () => `A live, simulated model of our classroom demonstrator: every block and wire from our Tinkercad circuit, actually running. About a minute. ${tap('Tap <b>NEXT</b>', 'Use <b>NEXT</b> or the ← → keys')} and skip any time.` },
+  { el: sel1('.modes'), t: 'POWER DATA',
+    b: () => `<b>FLIGHT BUDGET</b> shows the poster numbers: ${CFG.SOLAR_W.flight} W array, ${CFG.BATT_WH.flight} Wh battery, ${(CFG.CH.bus.flightW + CFG.CH.adcs.flightW).toFixed(1)} / ${CFG.CH.payload.flightW} / ${CFG.CH.tx.flightW} W for bus / payload / TX. <b>DEMO KIT</b> shows what the classroom hardware really draws. Every number on the page switches with it.` },
+  { el: sel1('.telem'), t: 'LIVE TELEMETRY',
+    b: () => `Solar in, load, net power, battery voltage and state of charge, updated ten times a second. <b>ECLIPSE DoD</b> is the energy one ${CFG.ECLIPSE_MIN}-min eclipse would take: ${(eclipsePrediction().dod * 100).toFixed(1)} % against our 30 % floor.` },
+  { el: nodeEls('solar', 'mppt', 'batt', 'sw', 'buck'), focus: ['power'], t: 'POWER CHAIN',
+    b: 'Sun → MPPT charger → 2S battery → main switch → 5 V buck converter. <b>Amber dashes are current</b>: they move when power flows, faster for more current, and turn red when a channel trips.' },
+  { el: nodeEls('ef_bus', 'ef_payload', 'ef_tx', 'ef_adcs'), focus: ['power'], t: 'eFUSES · PER-LOAD PROTECTION',
+    b: 'One switch and current limit per load: BUS+CDHS, PAYLOAD, TX and ADCS. A fault trips only its own channel instead of taking down the whole satellite. Each shows <b>current / limit</b>; TX stays off until a downlink pass.' },
+  { el: nodeEls('esp32'), t: 'ESP32 · FLIGHT COMPUTER (CDHS)',
+    b: 'Polls the sensors, runs the wheel control loop, triggers the payload and logs everything. The labels on its right edge are the <b>GPIO pins</b> each wire lands on.' },
+  { el: nodeEls('imu', 'mag', 'tmp'), focus: ['i2c'], t: 'I²C BUS · GREEN',
+    b: 'Two shared wires, three sensors, three addresses: IMU <b>0x68</b>, magnetometer <b>0x0D</b>, temperature <b>0x48</b>. Each green dot is one read: the request goes out and the bytes come back.' },
+  { el: nodeEls('gps'), focus: ['uart'], t: 'GPS UART · CYAN',
+    b: 'The NEO-6M streams position sentences once a second on its own line. There is no clock wire: both ends simply agree on <b>9600 baud</b>.' },
+  { el: nodeEls('sd', 'wdt'), focus: ['spi', 'wdt'], t: 'RECORDER + WATCHDOG',
+    b: '<b>SPI</b> (white) writes a telemetry frame to the SD card every 2 s. The ESP32 pings the <b>watchdog</b> (grey) every second; if the pings ever stop, the MAX6369 reboots it.' },
+  { el: nodeEls('cam'), focus: ['sync', 'ready'], t: 'PAYLOAD HANDSHAKE',
+    b: '<b>SYNC</b> (yellow) triggers a capture and <b>READY</b> (purple) confirms the frame. The ESP32-CAM exercises this interface; it does not replace the 96-band HYPER-A.' },
+  { el: nodeEls('drv_x', 'drv_y', 'drv_z', 'rw_x', 'rw_y', 'rw_z'), focus: ['pwm'], t: 'REACTION WHEELS · ORANGE',
+    b: 'Two PWM lines per wheel: <b>IA</b> spins it one way, <b>IB</b> the other. The ESP32 turns the IMU\'s body rates into wheel commands to cancel rotation. Watch them spin.' },
+  { el: sel1('#legend'), t: 'TRACE ANY BUS',
+    b: () => tap('Tap a bus here to trace it through the schematic (tap again to hide it). Tap any wire for its pins and protocol. Use <b>− FIT +</b> to zoom and drag to pan.',
+      'Hover a bus here to trace it through the schematic; click to hide it. Hover any wire for its exact pin and signal, click it for the protocol.') },
+  { el: sel1('#inspector'), sheet: true, enter: () => select({ type: 'node', id: 'esp32' }, true), t: 'INSPECTOR',
+    b: () => `${tap('Tap any block and this sheet slides up with', 'Click any block for')} its part number, role, flight vs demo power, why we chose it and what fails without it, plus a judge-style question with the answer. Readings update live.` },
+  { el: () => [$('#faults').closest('.panel')], t: 'FAULT INJECTION',
+    b: 'Break the satellite and watch it respond: eclipse, drained battery, a short circuit, a stalled wheel, a crashed computer. Next, we inject one for you.' },
+  { el: nodeEls('ef_payload', 'cam'), focus: ['power'], enter: () => { if (!S.f.short) { setFault('short', true); T.injected = true; } }, t: 'PAYLOAD SHORT · INJECTED',
+    b: 'The payload eFuse tripped (red) and cut only its own channel. CDHS, ADCS and the sensors keep running. That is exactly why every load has its own eFuse.' },
+  { el: () => [$('#log').closest('.panel')], t: 'BUS MONITOR',
+    b: 'Every message, decoded into plain text. Filter with the tabs; <b>SYS</b> shows system events, including the trip you just caused.' },
+  { t: 'YOUR TURN',
+    b: 'The satellite resets when you finish. Replay this tour any time with <b>▶ TOUR</b> at the top.' }
+];
+const T = { i: 0, active: false, injected: false, raf: 0 };
+const tourEl = $('#tour'), spot = $('.t-spot'), card = $('.t-card');
+const tourTargets = st => st.el ? st.el().filter(Boolean) : [];
+function unionRect(els) {
+  let l = 1e9, t = 1e9, r = -1e9, b = -1e9;
+  for (const e of els) { const q = e.getBoundingClientRect(); l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom); }
+  return { left: l, top: t, right: r, bottom: b, width: r - l, height: b - t };
+}
+function tourStart() {
+  if (T.active) return;
+  T.active = true; T.injected = false; tourEl.hidden = false;
+  subFocus = null; document.querySelectorAll('.subs button').forEach(x => x.classList.remove('on'));
+  select({ type: 'none' }, true);
+  try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* storage unavailable */ }
+  tourGo(0); tourLoop();
+}
+function tourEnd() {
+  if (!T.active) return;
+  T.active = false; tourEl.hidden = true; cancelAnimationFrame(T.raf);
+  tourFocus = null;
+  if (T.injected) resetAll();
+  select({ type: 'none' }, true);
+  $('#tourBtn').focus({ preventScroll: true });
+}
+function tourGo(i) {
+  T.i = clamp(i, 0, TOUR.length - 1);
+  const st = TOUR[T.i];
+  if (isSheet() && !st.sheet) openSheet(false);
+  if (st.enter) st.enter();
+  tourFocus = st.focus ? () => hoverBus(st.focus) : null;
+  clearFocus();
+  $('#tStep').textContent = `${String(T.i + 1).padStart(2, '0')} / ${TOUR.length}`;
+  $('#tTitle').textContent = val(st.t);
+  $('#tBody').innerHTML = val(st.b);
+  $('.t-prog i').style.width = ((T.i + 1) / TOUR.length * 100) + '%';
+  $('#tBack').disabled = T.i === 0;
+  $('#tNext').textContent = T.i === TOUR.length - 1 ? 'FINISH ✓' : T.i === 0 ? 'START ▶' : 'NEXT ▶';
+  $('#tNext').focus({ preventScroll: true });
+  setTimeout(() => tourScroll(st), 60);
+}
+function tourScroll(st) {
+  const els = tourTargets(st);
+  if (!els.length || (st.sheet && isSheet())) return;
+  if (els.some(e => wrap.contains(e))) {
+    const r = unionRect(els), wr = wrap.getBoundingClientRect();
+    wrap.scrollTo({ left: wrap.scrollLeft + (r.left + r.right) / 2 - (wr.left + wr.right) / 2, behavior: SMOOTH });
+  }
+  const r = unionRect(els), vh = innerHeight;
+  const dy = innerWidth <= 760
+    ? (r.height > vh * 0.5 ? r.top - 70 : (r.top + r.bottom) / 2 - vh * 0.3)
+    : (r.height > vh - 260 ? r.top - 24 : (r.top + r.bottom) / 2 - vh * 0.4);
+  if (Math.abs(dy) > 4) window.scrollBy({ top: dy, behavior: SMOOTH });
+}
+function tourLoop() { if (!T.active) return; tourPlace(); T.raf = requestAnimationFrame(tourLoop); }
+function tourPlace() {
+  const els = tourTargets(TOUR[T.i]), vw = innerWidth, vh = innerHeight, cw = card.offsetWidth, ch = card.offsetHeight, m = 12;
+  let cl, ct;
+  if (!els.length) {
+    spot.classList.add('none');
+    Object.assign(spot.style, { left: vw / 2 + 'px', top: vh / 2 + 'px', width: '0px', height: '0px' });
+    cl = (vw - cw) / 2; ct = (vh - ch) / 2;
+  } else {
+    spot.classList.remove('none');
+    const r = unionRect(els), p = 8;
+    const L = Math.max(4, r.left - p), Tp = Math.max(4, r.top - p), R = Math.min(vw - 4, r.right + p), B = Math.min(vh - 4, r.bottom + p);
+    Object.assign(spot.style, { left: L + 'px', top: Tp + 'px', width: Math.max(0, R - L) + 'px', height: Math.max(0, B - Tp) + 'px' });
+    if (vw <= 760) { cl = (vw - cw) / 2; ct = (Tp + B) / 2 < vh / 2 ? vh - ch - m : m; }
+    else if (B + 14 + ch < vh - m) { ct = B + 14; cl = clamp(L, m, vw - cw - m); }
+    else if (Tp - 14 - ch > m) { ct = Tp - 14 - ch; cl = clamp(L, m, vw - cw - m); }
+    else if (R + 14 + cw < vw - m) { cl = R + 14; ct = clamp(Tp, m, vh - ch - m); }
+    else if (L - 14 - cw > m) { cl = L - 14 - cw; ct = clamp(Tp, m, vh - ch - m); }
+    else { cl = vw - cw - m; ct = vh - ch - m; }
+  }
+  card.style.left = Math.round(cl) + 'px'; card.style.top = Math.round(ct) + 'px';
+}
+$('#tNext').addEventListener('click', () => T.i >= TOUR.length - 1 ? tourEnd() : tourGo(T.i + 1));
+$('#tBack').addEventListener('click', () => tourGo(T.i - 1));
+$('#tSkip').addEventListener('click', tourEnd);
+$('#tourBtn').addEventListener('click', tourStart);
+document.addEventListener('keydown', e => {
+  if (!T.active) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); $('#tNext').click(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); if (T.i > 0) tourGo(T.i - 1); }
+  else if (e.key === 'Escape') tourEnd();
+});
+
+build(); initUI(); renderInspector();
+applyZoom(innerWidth <= 1100 ? 1100 : null, false);
+(() => {
+  let seen = false;
+  try { seen = localStorage.getItem(TOUR_KEY) === '1'; } catch (e) { /* storage unavailable */ }
+  if (!seen && !/[?&]notour\b/.test(location.search)) setTimeout(tourStart, 1400);
+})();
+$('#links').innerHTML = CFG.LINKS.map(([t, u]) => `<a href="${u}">${t} ↗</a>`).join(' · ');
+log('sys', 'Al-Falaj SAT-1 demonstrator console online · simulated telemetry', 'ok');
+setInterval(tick, 100);
+requestAnimationFrame(anim);
+</script>
+</body>
+</html>
